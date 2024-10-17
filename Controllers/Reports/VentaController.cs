@@ -11,53 +11,66 @@ namespace MyApiProject.Controllers
         public async Task<IActionResult> ObtenerVentas()
         {
             // Ajustamos la consulta SQL para incluir el campo password
-            string query = @"SELECT top(1000) *
-                FROM [LOCAL_TC032391E].[dbo].[V0_Articles]";
+            string query = @"USE TC032841E
+                            SELECT 
+                                VTA.Articulo,
+                                art.Descripcion1,
+                                art.Categoria,
+                                art.Grupo,
+                                art.Linea,
+                                art.Familia,
+                                VTA.Unidad,
+                                SUM(VTA.Cantidad) AS TotalCantidad,
+                                SUM(VTA.Precio * VTA.Cantidad) AS TotalImporte
+                            FROM
+                                ART art
+                            RIGHT JOIN
+                                VentaD VTA ON art.ARTICULO = VTA.Articulo
+                            WHERE
+                                VTA.ID IN (
+                                    SELECT ID 
+                                    FROM Venta 
+                                    WHERE 
+                                        Mov = 'NOTA'
+                                        AND Estatus IN( 'CONCLUIDO','PROCESAR')
+                                        AND FechaEmision > '2024-09-01 00:00:00.000'
+                                        AND FechaEmision < '2024-09-30 00:00:00.000'
+                                        AND Sucursal in (1)
+                                )
+                            GROUP BY 
+                                VTA.Articulo,
+                                art.Descripcion1,
+                                art.Categoria,
+                                art.Grupo,
+                                art.Linea,
+                                art.Familia,
+                                VTA.Unidad
+                            ORDER BY
+                            TotalCantidad desc";
 
             try
             {
                 await using var connection = await OpenConnectionAsync();
                 await using var command = new SqlCommand(query, connection);
                 await using var reader = await command.ExecuteReaderAsync();
-
-                var ventas = new List<VentaDto>(); // Lista donde se almacenarán los resultados
+                var results = new List<Dictionary<string, object>>();
 
                 while (await reader.ReadAsync())
                 {
-                    ventas.Add(MapToVentaDto(reader)); // Usamos el método correcto para mapear los datos
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        row[reader.GetName(i)] = reader.GetValue(i);
+                    }
+                    results.Add(row);
                 }
 
-                return Ok(ventas); // Retornamos los resultados en formato JSON
+                return Ok(results);
             }
             catch (Exception ex)
             {
                 return HandleException(ex); // Método para gestionar las excepciones
             }
-        }
-        private VentaDto MapToVentaDto(SqlDataReader reader)
-        {
-            return new VentaDto
-            {
-                Id = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32(reader.GetOrdinal("id")),
-                IdTypeTaxes = reader.IsDBNull(reader.GetOrdinal("id_type_taxes")) ? null : reader.GetString(reader.GetOrdinal("id_type_taxes")),
-                IdMov = reader.IsDBNull(reader.GetOrdinal("id_mov")) ? null : reader.GetString(reader.GetOrdinal("id_mov")),
-                IdState = reader.IsDBNull(reader.GetOrdinal("id_state")) ? null : reader.GetString(reader.GetOrdinal("id_state")),
-                IdCaja = reader.IsDBNull(reader.GetOrdinal("id_caja")) ? null : reader.GetString(reader.GetOrdinal("id_caja")),
-                IdTypePago = reader.IsDBNull(reader.GetOrdinal("id_type_pago")) ? null : reader.GetString(reader.GetOrdinal("id_type_pago")),
-                IdSucursal = reader.IsDBNull(reader.GetOrdinal("id_sucursal")) ? null : reader.GetString(reader.GetOrdinal("id_sucursal")),
-                IdAlmacen = reader.IsDBNull(reader.GetOrdinal("id_almacen")) ? null : reader.GetString(reader.GetOrdinal("id_almacen")),
-                Art = reader.IsDBNull(reader.GetOrdinal("art")) ? null : reader.GetString(reader.GetOrdinal("art")),
-                Cant = reader.IsDBNull(reader.GetOrdinal("cant")) ? 0 : reader.GetInt32(reader.GetOrdinal("cant")),
-                Price = reader.IsDBNull(reader.GetOrdinal("price")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price")),
-                Taxes = reader.IsDBNull(reader.GetOrdinal("taxes")) ? null : reader.GetString(reader.GetOrdinal("taxes")),
-                Unit = reader.IsDBNull(reader.GetOrdinal("unit")) ? null : reader.GetString(reader.GetOrdinal("unit")),
-                StateArt = reader.IsDBNull(reader.GetOrdinal("state_art")) ? null : reader.GetString(reader.GetOrdinal("state_art")),
-                User = reader.IsDBNull(reader.GetOrdinal("user")) ? null : reader.GetString(reader.GetOrdinal("user")),
-                Client = reader.IsDBNull(reader.GetOrdinal("client")) ? null : reader.GetString(reader.GetOrdinal("client")),
-                Pago = reader.IsDBNull(reader.GetOrdinal("pago")) ? 0 : reader.GetDecimal(reader.GetOrdinal("pago")),
-                Import = reader.IsDBNull(reader.GetOrdinal("import")) ? 0 : reader.GetDecimal(reader.GetOrdinal("import")),
-                Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString(reader.GetOrdinal("currency"))
-            };
         }
 
 

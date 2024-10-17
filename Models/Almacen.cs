@@ -1,6 +1,6 @@
 namespace MyApiProject.Models
 {
-    public class VentaDto
+    public class AlmacenDto
     {
         public int Id { get; set; }
         public string IdTypeTaxes { get; set; }

@@ -6,8 +6,8 @@ namespace MyApiProject.Controllers
 {
     public partial class Reporteria : BaseController
     {
-        [HttpGet("api/v1/reporteria/almacen")]
-        public async Task<IActionResult> ObtenerAlmacen([FromQuery] string? art, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        [HttpGet("api/v1/reporteria/movimientos")]
+        public async Task<IActionResult> ObtenerMovimientos([FromQuery] string? art, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             // Validación de paginación
             if (page <= 0) page = 1;
@@ -34,9 +34,40 @@ namespace MyApiProject.Controllers
             {
                 // Consulta con filtro por "art"
                 query = $@"
-                    SELECT * 
-                    FROM [LOCAL_TC032391E].[dbo].[V0_Articles]
-                    WHERE art = @art
+                    USE TC032841E
+                            SELECT 
+                                VTA.Articulo,
+                                art.Descripcion1,
+                                art.Categoria,
+                                art.Grupo,
+                                art.Linea,
+                                art.Familia,
+                                VTA.Unidad,
+                                SUM(VTA.Cantidad) AS TotalCantidad,
+                                SUM(VTA.Precio * VTA.Cantidad) AS TotalImporte
+                            FROM
+                                ART art
+                            RIGHT JOIN
+                                VentaD VTA ON art.ARTICULO = VTA.Articulo
+                            WHERE
+                                VTA.ID IN (
+                                    SELECT ID 
+                                    FROM Venta 
+                                    WHERE 
+                                        Mov = 'NOTA'
+                                        AND Estatus IN( 'CONCLUIDO','PROCESAR')
+                                        AND FechaEmision > '2024-09-01 00:00:00.000'
+                                        AND FechaEmision < '2024-09-30 00:00:00.000'
+                                        AND Sucursal in (1)
+                                )
+                            GROUP BY 
+                                VTA.Articulo,
+                                art.Descripcion1,
+                                art.Categoria,
+                                art.Grupo,
+                                art.Linea,
+                                art.Familia,
+                                VTA.Unidad
                     ORDER BY [Id] -- Reemplaza con la columna adecuada para ordenar los resultados
                     OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 

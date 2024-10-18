@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using MyApiProject.Models;
+using System.Data;
+
 
 namespace MyApiProject.Controllers
 {
@@ -8,19 +10,7 @@ namespace MyApiProject.Controllers
     {
         [HttpGet("api/v1/reporteria/ventas")]
         public async Task<IActionResult> ObtenerVentas(
-    [FromQuery] string? articulo,
-    [FromQuery] string? descripcion,
-    [FromQuery] string? categoria,
-    [FromQuery] string? grupo,
-    [FromQuery] string? linea,
-    [FromQuery] string? familia,
-    [FromQuery] string? unidad,
-    [FromQuery] string? tipoImpuesto,
-    [FromQuery] string? estatus,
-    [FromQuery] string? mov,
-    [FromQuery] int? sucursal,
-    [FromQuery] DateTime? fechaInicio,
-    [FromQuery] DateTime? fechaFin,
+    [FromQuery] string? searchTerm,
     [FromQuery] string? campoDistinct,
     [FromQuery] int page = 1,
     [FromQuery] int pageSize = 10)
@@ -34,75 +24,53 @@ namespace MyApiProject.Controllers
             var parameters = new List<SqlParameter>();
             var whereClauses = new List<string>();
 
-            // Construir la cláusula WHERE dinámica
-            if (!string.IsNullOrEmpty(articulo))
+            // Obtener todos los parámetros de consulta
+            var queryParams = HttpContext.Request.Query;
+
+            // Mapeo de nombres de parámetros a campos de base de datos
+            var fieldMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        {"articulo", "VTA.Articulo"},
+        {"descripcion", "art.Descripcion1"},
+        {"categoria", "art.Categoria"},
+        {"grupo", "art.Grupo"},
+        {"linea", "art.Linea"},
+        {"familia", "art.Familia"},
+        {"unidad", "VTA.Unidad"},
+        {"tipoimpuesto", "VTA.TipoImpuesto1"},
+        {"estatus", "VTE.Estatus"},
+        {"mov", "VTE.Mov"},
+        {"sucursal", "VTE.Sucursal"},
+        {"fechainicio", "VTE.FechaEmision"},
+        {"fechafin", "VTE.FechaEmision"}
+    };
+
+            // Construir cláusulas WHERE dinámicamente
+            foreach (var param in queryParams)
             {
-                whereClauses.Add("VTA.Articulo = @articulo");
-                parameters.Add(new SqlParameter("@articulo", articulo));
-            }
-            if (!string.IsNullOrEmpty(descripcion))
-            {
-                whereClauses.Add("art.Descripcion1 LIKE '%' + @descripcion + '%'");
-                parameters.Add(new SqlParameter("@descripcion", descripcion));
-            }
-            if (!string.IsNullOrEmpty(categoria))
-            {
-                whereClauses.Add("art.Categoria = @categoria");
-                parameters.Add(new SqlParameter("@categoria", categoria));
-            }
-            if (!string.IsNullOrEmpty(grupo))
-            {
-                whereClauses.Add("art.Grupo = @grupo");
-                parameters.Add(new SqlParameter("@grupo", grupo));
-            }
-            if (!string.IsNullOrEmpty(linea))
-            {
-                whereClauses.Add("art.Linea = @linea");
-                parameters.Add(new SqlParameter("@linea", linea));
-            }
-            if (!string.IsNullOrEmpty(familia))
-            {
-                whereClauses.Add("art.Familia = @familia");
-                parameters.Add(new SqlParameter("@familia", familia));
-            }
-            if (!string.IsNullOrEmpty(unidad))
-            {
-                whereClauses.Add("VTA.Unidad = @unidad");
-                parameters.Add(new SqlParameter("@unidad", unidad));
-            }
-            if (!string.IsNullOrEmpty(tipoImpuesto))
-            {
-                whereClauses.Add(@"(
-            VTA.TipoImpuesto1 = @tipoImpuesto
-            OR VTA.TipoImpuesto2 = @tipoImpuesto
-            OR VTA.TipoImpuesto3 = @tipoImpuesto
-        )");
-                parameters.Add(new SqlParameter("@tipoImpuesto", tipoImpuesto));
-            }
-            if (!string.IsNullOrEmpty(estatus))
-            {
-                whereClauses.Add("VTE.Estatus = @estatus");
-                parameters.Add(new SqlParameter("@estatus", estatus));
-            }
-            if (!string.IsNullOrEmpty(mov))
-            {
-                whereClauses.Add("VTE.Mov = @mov");
-                parameters.Add(new SqlParameter("@mov", mov));
-            }
-            if (sucursal.HasValue)
-            {
-                whereClauses.Add("VTE.Sucursal = @sucursal");
-                parameters.Add(new SqlParameter("@sucursal", sucursal.Value));
-            }
-            if (fechaInicio.HasValue)
-            {
-                whereClauses.Add("VTE.FechaEmision >= @fechaInicio");
-                parameters.Add(new SqlParameter("@fechaInicio", fechaInicio.Value));
-            }
-            if (fechaFin.HasValue)
-            {
-                whereClauses.Add("VTE.FechaEmision <= @fechaFin");
-                parameters.Add(new SqlParameter("@fechaFin", fechaFin.Value));
+                var paramName = param.Key.ToLower();
+                if (fieldMappings.ContainsKey(paramName) && !string.IsNullOrEmpty(param.Value))
+                {
+                    var fieldName = fieldMappings[paramName];
+                    var paramValue = param.Value.ToString();
+                    string sqlParamName = "@" + paramName;
+
+                    if (paramName == "fechainicio")
+                    {
+                        whereClauses.Add($"{fieldName} >= {sqlParamName}");
+                        parameters.Add(new SqlParameter(sqlParamName, SqlDbType.DateTime) { Value = DateTime.Parse(paramValue) });
+                    }
+                    else if (paramName == "fechafin")
+                    {
+                        whereClauses.Add($"{fieldName} <= {sqlParamName}");
+                        parameters.Add(new SqlParameter(sqlParamName, SqlDbType.DateTime) { Value = DateTime.Parse(paramValue) });
+                    }
+                    else
+                    {
+                        whereClauses.Add($"{fieldName} = {sqlParamName}");
+                        parameters.Add(new SqlParameter(sqlParamName, paramValue));
+                    }
+                }
             }
 
             string whereClause = whereClauses.Any() ? "AND " + string.Join(" AND ", whereClauses) : "";
@@ -110,35 +78,33 @@ namespace MyApiProject.Controllers
             // Si se especifica un campo para obtener valores distintos
             if (!string.IsNullOrEmpty(campoDistinct))
             {
-                // Validar que el campoDistinct sea válido para evitar inyección SQL
-                var camposValidos = new List<string>
+                // Validar que el campoDistinct sea válido
+                var camposValidos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            "VTA.Articulo",
-            "art.Descripcion1",
-            "art.Categoria",
-            "art.Grupo",
-            "art.Linea",
-            "art.Familia",
-            "VTA.Unidad",
-            "VTA.TipoImpuesto1",
-            "VTA.TipoImpuesto2",
-            "VTA.TipoImpuesto3",
-            "VTE.Estatus",
-            "VTE.Mov",
-            "VTE.Sucursal",
-            "VTE.FechaEmision"
+            {"articulo", "VTA.Articulo"},
+            {"descripcion1", "art.Descripcion1"},
+            {"categoria", "art.Categoria"},
+            {"grupo", "art.Grupo"},
+            {"linea", "art.Linea"},
+            {"familia", "art.Familia"},
+            {"unidad", "VTA.Unidad"},
+            {"tipoimpuesto1", "VTA.TipoImpuesto1"},
+            {"tipoimpuesto2", "VTA.TipoImpuesto2"},
+            {"tipoimpuesto3", "VTA.TipoImpuesto3"},
+            {"estatus", "VTE.Estatus"},
+            {"mov", "VTE.Mov"},
+            {"sucursal", "VTE.Sucursal"},
+            {"fechaemision", "VTE.FechaEmision"}
         };
 
-                // Mapear nombres amigables a nombres de columnas
-                var campoMapeado = camposValidos.FirstOrDefault(c => c.EndsWith("." + campoDistinct, StringComparison.OrdinalIgnoreCase));
-                if (campoMapeado == null)
+                if (!camposValidos.TryGetValue(campoDistinct.ToLower(), out string campoBD))
                 {
                     return BadRequest("El campo especificado para 'campoDistinct' no es válido.");
                 }
 
                 string queryDistinct = $@"
             USE TC032841E
-            SELECT DISTINCT {campoMapeado} AS Valor
+            SELECT DISTINCT {campoBD} AS Valor
             FROM
                 VentaD VTA
             INNER JOIN
@@ -148,15 +114,13 @@ namespace MyApiProject.Controllers
             WHERE
                 VTE.Mov = 'NOTA'
                 AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                AND VTE.FechaEmision > '2024-09-01 00:00:00.000'
-                AND VTE.FechaEmision < '2024-09-30 00:00:00.000'
                 {whereClause}
             ORDER BY Valor
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
                 string countQueryDistinct = $@"
             USE TC032841E
-            SELECT COUNT(DISTINCT {campoMapeado}) 
+            SELECT COUNT(DISTINCT {campoBD}) 
             FROM
                 VentaD VTA
             INNER JOIN
@@ -166,8 +130,6 @@ namespace MyApiProject.Controllers
             WHERE
                 VTE.Mov = 'NOTA'
                 AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                AND VTE.FechaEmision > '2024-09-01 00:00:00.000'
-                AND VTE.FechaEmision < '2024-09-30 00:00:00.000'
                 {whereClause}";
 
                 try
@@ -244,8 +206,6 @@ namespace MyApiProject.Controllers
             WHERE
                 VTE.Mov = 'NOTA'
                 AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                AND VTE.FechaEmision > '2024-09-01 00:00:00.000'
-                AND VTE.FechaEmision < '2024-09-30 00:00:00.000'
                 {whereClause}
             GROUP BY 
                 VTA.Articulo,
@@ -276,8 +236,6 @@ namespace MyApiProject.Controllers
                 WHERE
                     VTE.Mov = 'NOTA'
                     AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                    AND VTE.FechaEmision > '2024-09-01 00:00:00.000'
-                    AND VTE.FechaEmision < '2024-09-30 00:00:00.000'
                     {whereClause}
                 GROUP BY 
                     VTA.Articulo,
@@ -343,6 +301,7 @@ namespace MyApiProject.Controllers
                 }
             }
         }
+
 
     }
 }

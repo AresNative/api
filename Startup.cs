@@ -19,7 +19,7 @@ public class Startup
         // Definir la política de CORS desde configuración
         services.AddCors(options =>
         {
-            options.AddPolicy("AllowSpecificOrigins",
+            options.AddPolicy("AllowedCorsOrigins",
                 policy =>
                 {
                     policy.WithOrigins(allowedCorsOrigins)  // Cargar orígenes desde appsettings.json
@@ -53,6 +53,7 @@ public class Startup
                 options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
             });
         // Registrar los controladores, servicios y otros componentes
+        services.AddHttpClient();
         services.AddEndpointsApiExplorer();
 
         // Registrar AuthUtils y TokensUtils como servicios separados
@@ -107,7 +108,7 @@ public class Startup
             c.RoutePrefix = string.Empty; // Acceso a Swagger en la raíz
         });
 
-        app.UseCors("AllowSpecificOrigins");
+        app.UseCors("AllowedCorsOrigins");
 
         app.UseRouting();
 

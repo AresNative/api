@@ -27,11 +27,19 @@ namespace MyApiProject.Controllers
         }
 
         // Método centralizado para manejar excepciones
-        protected IActionResult HandleException(Exception ex)
+        protected IActionResult HandleException(Exception ex, string? query = null)
         {
-            // Aquí puedes agregar más lógica para registrar el error en un sistema de logging, si lo deseas
-            return StatusCode(500, new { Message = $"Error: {ex.Message}" });
+            // Crea el objeto de respuesta con el mensaje de error
+            var response = new
+            {
+                Message = $"Error: {ex.Message}",
+                Query = query // Se incluye solo si no es null
+            };
+
+            // Devuelve el estado de error con la respuesta
+            return StatusCode(500, response);
         }
+
 
         // Si deseas manejar excepciones más específicas, puedes sobrecargar el método
         protected IActionResult HandleException(Exception ex, int statusCode)

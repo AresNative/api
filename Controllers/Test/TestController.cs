@@ -36,28 +36,37 @@ namespace MyApiProject.Controllers
                     [TC032841E].[dbo].[Prov] p ON c.Proveedor = p.Proveedor
                 LEFT JOIN
                     [TC032841E].[dbo].[ArtUnidad] U ON cb.Cuenta = U.Articulo
-                WHERE 
-                    1 = 1"; // Esto permite agregar más condiciones sin errores de sintaxis
+                 LEFT JOIN
+                    [TC032841E].[dbo].[Art] A ON cb.Cuenta = A.Articulo   
+                    "; // Esto permite agregar más condiciones sin errores de sintaxis
 
             // Construcción de la consulta para el total de registros
             var countQueryBuilder = new StringBuilder($"SELECT COUNT(1) {baseQuery}");
 
             // Construcción de la consulta con paginación
             var queryBuilder = new StringBuilder($@"
-                SELECT
-                    cb.Codigo, 
-                    cd.Articulo,
-                    c.Estatus,
-                    cd.Unidad, 
-                    U.Factor AS Equivalente, 
-                    cd.ID AS CompraID, 
-                    cd.CODIGO AS CompraCodigo, 
-                    cd.Cantidad, 
-                    cd.Costo,
-                    c.MovID, 
-                    c.FechaEmision, 
-                    c.Proveedor,
-                    p.Nombre AS Proveedor_Nombre
+                  USE [TC032841E]
+                    SELECT
+                        cb.Codigo, 
+                        cd.Articulo,
+                        A.Descripcion1 AS Nombre,
+                        c.Estatus,
+                        cd.Unidad, 
+                        U.Factor AS Equivalente, 
+                        cd.ID AS CompraID, 
+                        cd.CODIGO AS CompraCodigo, 
+                        cd.Cantidad, 
+                        cd.Costo,
+                        cd.Sucursal,
+                        c.MovID, 
+                        c.FechaEmision, 
+                        c.Proveedor,
+                        p.Nombre AS ProveedorNombre,
+                        CONCAT_WS(', ', 
+                                NULLIF(A.TipoImpuesto1, ''), 
+                                NULLIF(A.TipoImpuesto2, ''), 
+                                NULLIF(A.TipoImpuesto3, '')
+                            ) as Impuestos
                 {baseQuery}");
 
             // Lista de parámetros para la consulta

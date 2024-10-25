@@ -15,12 +15,14 @@ namespace MyApiProject.Controllers
             [FromQuery] string? estatus,
             [FromQuery] string? articulo,
             [FromQuery] string? proveedor,
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
             // Validación de paginación
             if (page <= 0) page = 1;
-            if (pageSize <= 0 || pageSize > 100) pageSize = 10; // Limitar el tamaño de la página a un máximo de 100
+            if (pageSize <= 0 || pageSize > 100) pageSize = 10;
 
             int offset = (page - 1) * pageSize;
 
@@ -36,70 +38,75 @@ namespace MyApiProject.Controllers
                     [TC032841E].[dbo].[Prov] p ON c.Proveedor = p.Proveedor
                 LEFT JOIN
                     [TC032841E].[dbo].[ArtUnidad] U ON cb.Cuenta = U.Articulo
-                 LEFT JOIN
-                    [TC032841E].[dbo].[Art] A ON cb.Cuenta = A.Articulo   
-                    "; // Esto permite agregar más condiciones sin errores de sintaxis
+                LEFT JOIN
+                    [TC032841E].[dbo].[Art] A ON cb.Cuenta = A.Articulo";
 
-            // Construcción de la consulta para el total de registros
-            var countQueryBuilder = new StringBuilder($"SELECT COUNT(1) {baseQuery}");
-
-            // Construcción de la consulta con paginación
-            var queryBuilder = new StringBuilder($@"
-                  USE [TC032841E]
-                    SELECT
-                        cb.Codigo, 
-                        cd.Articulo,
-                        A.Descripcion1 AS Nombre,
-                        c.Estatus,
-                        cd.Unidad, 
-                        U.Factor AS Equivalente, 
-                        cd.ID AS CompraID, 
-                        cd.CODIGO AS CompraCodigo, 
-                        cd.Cantidad, 
-                        cd.Costo,
-                        cd.Sucursal,
-                        c.MovID, 
-                        c.FechaEmision, 
-                        c.Proveedor,
-                        p.Nombre AS ProveedorNombre,
-                        CONCAT_WS(', ', 
-                                NULLIF(A.TipoImpuesto1, ''), 
-                                NULLIF(A.TipoImpuesto2, ''), 
-                                NULLIF(A.TipoImpuesto3, '')
-                            ) as Impuestos
-                {baseQuery}");
-
-            // Lista de parámetros para la consulta
+            // Construcción de la cláusula WHERE de manera dinámica con LIKE y rango de fechas
+            var whereClauses = new List<string>();
             var parameters = new List<SqlParameter>();
 
-            // Agregar condiciones dinámicamente
             if (!string.IsNullOrEmpty(codigo))
             {
-                countQueryBuilder.Append(" AND cb.Codigo = @Codigo");
-                queryBuilder.Append(" AND cb.Codigo = @Codigo");
-                parameters.Add(new SqlParameter("@Codigo", codigo));
+                whereClauses.Add("cb.Codigo LIKE @Codigo");
+                parameters.Add(new SqlParameter("@Codigo", $"{codigo}"));
             }
             if (!string.IsNullOrEmpty(estatus))
             {
-                countQueryBuilder.Append(" AND c.Estatus = @Estatus");
-                queryBuilder.Append(" AND c.Estatus = @Estatus");
-                parameters.Add(new SqlParameter("@Estatus", estatus));
+                whereClauses.Add("c.Estatus LIKE @Estatus");
+                parameters.Add(new SqlParameter("@Estatus", $"%{estatus}%"));
             }
             if (!string.IsNullOrEmpty(articulo))
             {
-                countQueryBuilder.Append(" AND cd.Articulo = @Articulo");
-                queryBuilder.Append(" AND cd.Articulo = @Articulo");
-                parameters.Add(new SqlParameter("@Articulo", articulo));
+                whereClauses.Add("cd.Articulo LIKE @Articulo");
+                parameters.Add(new SqlParameter("@Articulo", $"%{articulo}%"));
             }
             if (!string.IsNullOrEmpty(proveedor))
             {
-                countQueryBuilder.Append(" AND c.Proveedor = @Proveedor");
-                queryBuilder.Append(" AND c.Proveedor = @Proveedor");
-                parameters.Add(new SqlParameter("@Proveedor", proveedor));
+                whereClauses.Add("c.Proveedor LIKE @Proveedor");
+                parameters.Add(new SqlParameter("@Proveedor", $"%{proveedor}%"));
+            }
+            if (startDate.HasValue)
+            {
+                whereClauses.Add("c.FechaEmision >= @StartDate");
+                parameters.Add(new SqlParameter("@StartDate", startDate.Value));
+            }
+            if (endDate.HasValue)
+            {
+                whereClauses.Add("c.FechaEmision <= @EndDate");
+                parameters.Add(new SqlParameter("@EndDate", endDate.Value));
             }
 
-            // Agregar la cláusula ORDER BY seguida de OFFSET-FETCH para la paginación
-            queryBuilder.Append(@"
+            // Si hay cláusulas WHERE, agregarlas al query base
+            var whereQuery = whereClauses.Any() ? $" WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+            // Construcción de la consulta para el total de registros
+            var countQueryBuilder = new StringBuilder($"SELECT COUNT(1) {baseQuery} {whereQuery}");
+
+            // Construcción de la consulta con paginación
+            var queryBuilder = new StringBuilder($@"
+                USE [TC032841E]
+                SELECT
+                    cb.Codigo, 
+                    cd.Articulo,
+                    A.Descripcion1 AS Nombre,
+                    c.Estatus,
+                    cd.Unidad, 
+                    U.Factor AS Equivalente, 
+                    cd.ID AS CompraID, 
+                    cd.CODIGO AS CompraCodigo, 
+                    cd.Cantidad, 
+                    cd.Costo,
+                    cd.Sucursal,
+                    c.MovID, 
+                    c.FechaEmision, 
+                    c.Proveedor,
+                    p.Nombre AS ProveedorNombre,
+                    CONCAT_WS(', ', 
+                        NULLIF(A.TipoImpuesto1, ''), 
+                        NULLIF(A.TipoImpuesto2, ''), 
+                        NULLIF(A.TipoImpuesto3, '')
+                    ) as Impuestos
+                {baseQuery} {whereQuery}
                 ORDER BY cb.Codigo
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
 
@@ -127,7 +134,7 @@ namespace MyApiProject.Controllers
                 // Ejecutar la consulta con paginación
                 await using var command = new SqlCommand(queryBuilder.ToString(), connection)
                 {
-                    CommandTimeout = 30 // Tiempo de espera de 30 segundos
+                    CommandTimeout = 30
                 };
 
                 // Asigna los parámetros al comando
@@ -160,7 +167,6 @@ namespace MyApiProject.Controllers
             }
             catch (Exception ex)
             {
-                // Llama a HandleException con la excepción y la consulta
                 return HandleException(ex, queryBuilder.ToString());
             }
         }

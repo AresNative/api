@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.Linq;
 
 namespace MyApiProject.Controllers
 {
@@ -20,110 +21,98 @@ namespace MyApiProject.Controllers
 
         // GET: api/precios
         [HttpGet]
-        public async Task<IActionResult> GetPrecios([FromQuery] string? codigo)
+        public async Task<IActionResult> GetPrecios([FromQuery] string? filtro)
         {
-            if (string.IsNullOrEmpty(codigo))
+            if (string.IsNullOrEmpty(filtro))
             {
-                return BadRequest(new ErrorResponse { Message = "Debe proporcionar el parámetro 'codigo'." });
+                return BadRequest(new ErrorResponse { Message = "Debe proporcionar el parámetro de búsqueda." });
             }
 
             var precios = new List<PrecioDto>();
             var ofertas = new List<OfertaDto>();
+            string articulo = filtro; // Por defecto, asumimos que el filtro es el artículo
 
-            // Definir las consultas SQL
-            string queryByCodigo = @"
-            SELECT 
-                CB.Codigo, 
-                CB.Cuenta, 
-                ART.Descripcion1, 
-                ListaPreciosDUnidad.Unidad, 
-                ListaPreciosDUnidad.Precio,
-                ArtUnidad.Factor 
-            FROM [CAJA03_S4].[dbo].[CB]
-                INNER JOIN [CAJA03_S4].[dbo].ART ON CB.Cuenta = ART.Articulo 
-                INNER JOIN [CAJA03_S4].[dbo].ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
-                INNER JOIN [CAJA03_S4].[dbo].ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
-            WHERE 
-                ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
-                AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
-                AND CB.Unidad = ArtUnidad.Unidad 
-                AND CB.Codigo = @Codigo 
-            ORDER BY ArtUnidad.Factor ASC;
-        ";
+            // Consultas SQL
+            string queryPrecios = @"
+                USE TC032841E;
+                SELECT 
+                    CB.Codigo, 
+                    CB.Cuenta, 
+                    Art.Descripcion1, 
+                    ListaPreciosDUnidad.Unidad, 
+                    ListaPreciosDUnidad.Precio,
+                    ArtUnidad.Factor 
+                FROM [TC032841E].[dbo].[CB]
+                INNER JOIN [TC032841E].[dbo].Art ON CB.Cuenta = Art.Articulo 
+                INNER JOIN [TC032841E].[dbo].ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
+                INNER JOIN [TC032841E].[dbo].ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
+                WHERE 
+                    ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
+                    AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
+                    AND CB.Unidad = ArtUnidad.Unidad 
+                    AND (CB.Codigo = @Filtro OR Art.Articulo = @Filtro OR Art.Descripcion1 LIKE '%' + @Filtro + '%')
+                ORDER BY ArtUnidad.Factor ASC;
+            ";
 
-            string queryByArticulo = @"
-            SELECT 
-                CB.Codigo, 
-                CB.Cuenta, 
-                ART.Descripcion1, 
-                ListaPreciosDUnidad.Unidad, 
-                ListaPreciosDUnidad.Precio,
-                ArtUnidad.Factor 
-            FROM [CAJA03_S4].[dbo].CB 
-                INNER JOIN [CAJA03_S4].[dbo].ART ON CB.Cuenta = ART.Articulo 
-                INNER JOIN [CAJA03_S4].[dbo].ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
-                INNER JOIN [CAJA03_S4].[dbo].ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
-            WHERE 
-                ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
-                AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
-                AND CB.Unidad = ArtUnidad.Unidad 
-                AND ART.Articulo = (SELECT Articulo FROM ART WHERE Articulo = @Codigo)
-            ORDER BY ArtUnidad.Factor ASC;
-        ";
+            string queryArticuloPorCodigo = @"
+                SELECT Cuenta 
+                FROM [TC032841E].[dbo].[CB]
+                WHERE Codigo = @Codigo;
+            ";
 
-            string query_oferta = @"
-            SELECT 
-                OfertaD.Articulo,
-                OfertaD.Precio,
-                Oferta.FechaD,
-                Oferta.FechaA
-            FROM 
-                [CAJA03_S4].[dbo].OfertaD 
-                INNER JOIN [CAJA03_S4].[dbo].Oferta ON OfertaD.ID = Oferta.ID
-            WHERE
-                OfertaD.Articulo = @Codigo
-                AND
-                Oferta.FechaD < GETDATE() 
-                AND
-                Oferta.FechaA > GETDATE();
-        ";
+            string queryOfertas = @"
+                SELECT 
+                    OfertaD.Articulo,
+                    OfertaD.Precio,
+                    Oferta.FechaD,
+                    Oferta.FechaA
+                FROM 
+                    [TC032841E].[dbo].OfertaD 
+                INNER JOIN [TC032841E].[dbo].Oferta ON OfertaD.ID = Oferta.ID
+                WHERE
+                    OfertaD.Articulo = @Articulo
+                    AND Oferta.FechaD < GETDATE() 
+                    AND Oferta.FechaA > GETDATE();
+            ";
 
             try
             {
                 await using var connection = await OpenConnection();
 
-                // Primero buscar con la consulta principal usando el 'codigo'
-                await using var command = new SqlCommand(queryByCodigo, connection);
-                command.Parameters.AddWithValue("@Codigo", codigo);
-
-                await using var reader = await command.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                // Si el filtro es un código, obtener el artículo correspondiente desde la columna 'Cuenta'
+                await using (var commandArticulo = new SqlCommand(queryArticuloPorCodigo, connection))
                 {
-                    precios.Add(MapToPrecioDto(reader));
-                }
-                reader.Close();
+                    commandArticulo.Parameters.AddWithValue("@Codigo", filtro);
+                    var result = await commandArticulo.ExecuteScalarAsync();
 
-                // Si no se encuentra ningún resultado, buscar con la consulta alternativa
-                if (!precios.Any())
-                {
-                    await using var commandAlt = new SqlCommand(queryByArticulo, connection);
-                    commandAlt.Parameters.AddWithValue("@Codigo", codigo);
-
-                    await using var readerAlt = await commandAlt.ExecuteReaderAsync();
-                    while (await readerAlt.ReadAsync())
+                    if (result != null)
                     {
-                        precios.Add(MapToPrecioDto(readerAlt));
+                        articulo = result.ToString(); // Actualizar el filtro con el artículo encontrado
                     }
                 }
 
-                // Buscar ofertas
-                await using var commandOferta = new SqlCommand(query_oferta, connection);
-                commandOferta.Parameters.AddWithValue("@Codigo", codigo);
-
-                await using var readerOferta = await commandOferta.ExecuteReaderAsync();
-                while (await readerOferta.ReadAsync())
+                // Ejecutar consulta de precios
+                await using (var commandPrecios = new SqlCommand(queryPrecios, connection))
                 {
-                    ofertas.Add(MapToOfertaDto(readerOferta)); // Utiliza el método MapToOfertaDto correcto
+                    commandPrecios.Parameters.AddWithValue("@Filtro", filtro);
+
+                    await using var readerPrecios = await commandPrecios.ExecuteReaderAsync();
+                    while (await readerPrecios.ReadAsync())
+                    {
+                        precios.Add(MapToPrecioDto(readerPrecios));
+                    }
+                }
+
+                // Ejecutar consulta de ofertas usando el artículo
+                await using (var commandOfertas = new SqlCommand(queryOfertas, connection))
+                {
+                    commandOfertas.Parameters.AddWithValue("@Articulo", articulo);
+
+                    await using var readerOfertas = await commandOfertas.ExecuteReaderAsync();
+                    while (await readerOfertas.ReadAsync())
+                    {
+                        ofertas.Add(MapToOfertaDto(readerOfertas));
+                    }
                 }
             }
             catch (Exception ex)
@@ -135,23 +124,11 @@ namespace MyApiProject.Controllers
             return Ok(new { Precios = precios, Ofertas = ofertas });
         }
 
-
-
         private async Task<SqlConnection> OpenConnection()
         {
             var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             return connection;
-        }
-
-        private void AddParameters(SqlCommand command, PrecioDto precioDto)
-        {
-            command.Parameters.AddWithValue("@Codigo", precioDto.Codigo ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@Cuenta", precioDto.Cuenta ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@Descripcion1", precioDto.Descripcion1 ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@Unidad", precioDto.Unidad ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@Precio", precioDto.Precio);
-            command.Parameters.AddWithValue("@Factor", precioDto.Factor);
         }
 
         private PrecioDto MapToPrecioDto(SqlDataReader reader)
@@ -166,20 +143,7 @@ namespace MyApiProject.Controllers
                 Factor = reader["Factor"] != DBNull.Value ? Convert.ToDecimal(reader["Factor"]) : 0,
             };
         }
-        private void AddParametersPost(SqlCommand command, PrecioPostDto precioPostDto)
-        {
-            command.Parameters.AddWithValue("@Articulo", precioPostDto.Articulo ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@Lista", precioPostDto.Lista ?? (object)DBNull.Value);
-        }
-        private PrecioPostDto MapToPrecioPostDto(SqlDataReader reader)
-        {
-            return new PrecioPostDto
-            {
-                Articulo = reader["Articulo"] != DBNull.Value ? reader["Articulo"].ToString() : null,
-                Lista = reader["Lista"] != DBNull.Value ? reader["Lista"].ToString() : null,
 
-            };
-        }
         private OfertaDto MapToOfertaDto(SqlDataReader reader)
         {
             return new OfertaDto
@@ -190,6 +154,7 @@ namespace MyApiProject.Controllers
                 FechaHasta = Convert.ToDateTime(reader["FechaA"])
             };
         }
+
         private IActionResult HandleException(Exception ex)
         {
             return StatusCode(500, new ErrorResponse { Message = "Error: " + ex.Message });

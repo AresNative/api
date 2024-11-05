@@ -5,8 +5,8 @@ namespace MyApiProject.Models
         public string nombre { get; set; }
         public string apellido_paterno { get; set; }
         public string apellido_materno { get; set; }
-        public int edad { get; set; }
-        public DateTime fecha_nacimiento { get; set; }
+        public int? edad { get; set; }
+        public DateTime? fecha_nacimiento { get; set; }
         public string correo_electronico { get; set; }
         public string numero_telefono { get; set; }
         public string direccion_actual { get; set; }

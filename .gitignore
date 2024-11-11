@@ -1,3 +1,6 @@
+# Ignorar específicamente appsettings.json
+appsettings.json
+
 # dependencies
 /bin
 /Obj
@@ -34,8 +37,3 @@
 *.exe
 *.out
 *.app
-
-
-# Exclude all JSON files except appsettings.json
-*.json
-!appsettings.json

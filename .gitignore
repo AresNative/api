@@ -34,3 +34,8 @@
 *.exe
 *.out
 *.app
+
+
+# Exclude all JSON files except appsettings.json
+*.json
+!appsettings.json

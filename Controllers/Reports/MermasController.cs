@@ -57,12 +57,13 @@ namespace MyApiProject.Controllers
                 whereClauses.Add("art.Descripcion1 LIKE @Descripcion");
                 parameters.Add(new SqlParameter("@Descripcion", $"%{descripcion}%"));
             }
+
             var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";
             baseQuery += whereQuery + ")";
 
-            var countQueryBuilder = new StringBuilder($"SELECT COUNT(1) {baseQuery}");
+            var countQuery = new StringBuilder($"SELECT COUNT(1) {baseQuery}");
 
-            var queryBuilder = new StringBuilder($@"
+            var query = new StringBuilder($@"
                 USE TC032841E
                 SELECT
                     inv.Articulo,
@@ -87,14 +88,13 @@ namespace MyApiProject.Controllers
                     TotalCantidad DESC
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
 
-
             try
             {
                 int totalRecords;
                 await using var connection = await OpenConnectionAsync();
 
                 var countParameters = parameters.Select(p => new SqlParameter(p.ParameterName, p.Value)).ToArray();
-                await using (var countCommand = new SqlCommand(countQueryBuilder.ToString(), connection))
+                await using (var countCommand = new SqlCommand(countQuery.ToString(), connection))
                 {
                     countCommand.Parameters.AddRange(countParameters);
                     totalRecords = (int)await countCommand.ExecuteScalarAsync();
@@ -104,7 +104,7 @@ namespace MyApiProject.Controllers
                 paginatedParameters.Add(new SqlParameter("@Offset", offset));
                 paginatedParameters.Add(new SqlParameter("@PageSize", pageSize));
 
-                await using var command = new SqlCommand(queryBuilder.ToString(), connection);
+                await using var command = new SqlCommand(query.ToString(), connection);
                 command.Parameters.AddRange(paginatedParameters.ToArray());
 
                 await using var reader = await command.ExecuteReaderAsync();
@@ -132,7 +132,7 @@ namespace MyApiProject.Controllers
             }
             catch (Exception ex)
             {
-                return HandleException(ex, queryBuilder.ToString());
+                return HandleException(ex, query.ToString());
             }
         }
     }

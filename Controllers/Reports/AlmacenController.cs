@@ -7,68 +7,98 @@ namespace MyApiProject.Controllers
     public partial class Reporteria : BaseController
     {
         [HttpGet("api/v1/reporteria/almacen")]
-        public async Task<IActionResult> ObtenerAlmacen([FromQuery] string? art, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> ObtenerAlmacen(
+        [FromQuery] string? estatus,
+        [FromQuery] string? articulo,
+        [FromQuery] string? descripcion,
+        [FromQuery] string? usuario,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
         {
             // Validación de paginación
             if (page <= 0) page = 1;
-            if (pageSize <= 0 || pageSize > 100) pageSize = 10; // Limitar el tamaño de la página a un máximo de 100
+            if (pageSize <= 0 || pageSize > 100) pageSize = 10;
 
             int offset = (page - 1) * pageSize;
 
-            string query;
-            string countQuery;
+            // Base de la consulta SQL
+            var baseQuery = @"
+            FROM POSLVenta pv
+            JOIN POSL pl ON pv.ID = pl.ID
+            LEFT JOIN POSLCobro pc ON pl.ID = pc.ID
+            LEFT JOIN Art A ON pv.Articulo = A.Articulo";
 
-            if (string.IsNullOrEmpty(art))
+            // Construcción dinámica de cláusulas WHERE
+            var whereClauses = new List<string>();
+            var parameters = new List<SqlParameter>();
+
+            if (!string.IsNullOrEmpty(articulo))
             {
-                // Consulta sin filtro si no se recibe el parámetro "art"
-                query = $@"
-                    SELECT * 
-                    FROM [LOCAL_TC032391E].[dbo].[V0_Articles]
-                    ORDER BY [Id] -- Reemplaza con la columna adecuada para ordenar los resultados
-                    OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
-
-                // Consulta para obtener el total de registros sin filtro
-                countQuery = "SELECT COUNT(*) FROM [LOCAL_TC032391E].[dbo].[V0_Articles]";
+                whereClauses.Add("pv.Articulo LIKE @Articulo");
+                parameters.Add(new SqlParameter("@Articulo", $"%{articulo}%"));
             }
-            else
+            if (!string.IsNullOrEmpty(estatus))
             {
-                // Consulta con filtro por "art"
-                query = $@"
-                    SELECT * 
-                    FROM [LOCAL_TC032391E].[dbo].[V0_Articles]
-                    WHERE art = @art
-                    ORDER BY [Id] -- Reemplaza con la columna adecuada para ordenar los resultados
-                    OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
-
-                // Consulta para obtener el total de registros con filtro
-                countQuery = "SELECT COUNT(*) FROM [LOCAL_TC032391E].[dbo].[V0_Articles] WHERE art = @art";
+                whereClauses.Add("pv.Estatus LIKE @Estatus");
+                parameters.Add(new SqlParameter("@Estatus", $"%{estatus}%"));
             }
+            if (!string.IsNullOrEmpty(usuario))
+            {
+                whereClauses.Add("pl.Usuario LIKE @Usuario");
+                parameters.Add(new SqlParameter("@Usuario", $"%{usuario}%"));
+            }
+            if (!string.IsNullOrEmpty(descripcion))
+            {
+                whereClauses.Add("a.Descripcion1 LIKE @Descripcion");
+                parameters.Add(new SqlParameter("@Descripcion", $"%{descripcion}%"));
+            }
+
+            // Agregar cláusulas WHERE a la consulta si existen
+            var whereQuery = whereClauses.Any() ? $" WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+            // Construcción de la consulta completa con paginación
+            var query = $@"
+            USE [TC032841E]
+            SELECT
+            pv.Articulo,            
+            A.Descripcion1 AS Descripcion,
+            pv.Cantidad,            
+            pv.Precio,              
+            CONCAT_WS(', ' , pv.Impuesto1, pv.Impuesto2, pv.Impuesto3) as taxes, 
+            CONCAT_WS(', ' , 
+                        NULLIF(pv.TipoImpuesto1, ' '), 
+                        NULLIF(pv.TipoImpuesto2, ' '), 
+                        NULLIF(pv.TipoImpuesto3, ' ')
+            ) as TipoImpuesto,      
+            pv.Unidad,              
+            pv.Estatus,             
+            pl.MovID,               
+            pl.Usuario,             
+            pl.Estatus,             
+            pl.Nombre,              
+            pl.Caja,                
+            pc.Importe,             
+            pc.FormaPago,           
+            pc.Importe,             
+            pc.MonedaRef,           
+            1 as id_sucursal,       
+            1 as id_almacen         
+            {baseQuery} {whereQuery}
+            ORDER BY (SELECT NULL)
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
 
             try
             {
                 await using var connection = await OpenConnectionAsync();
+                var command = new SqlCommand(query, connection);
 
-                // Ejecutamos la consulta de conteo total de registros
-                await using var countCommand = new SqlCommand(countQuery, connection);
-                if (!string.IsNullOrEmpty(art))
-                {
-                    countCommand.Parameters.AddWithValue("@art", art);
-                }
-                int totalRecords = (int)await countCommand.ExecuteScalarAsync();
+                // Asignar parámetros al comando SQL
+                parameters.ForEach(param => command.Parameters.Add(param));
+                command.Parameters.AddWithValue("@Offset", offset);
+                command.Parameters.AddWithValue("@PageSize", pageSize);
 
-                // Ejecutamos la consulta paginada
-                await using var command = new SqlCommand(query, connection);
-                command.Parameters.AddWithValue("@offset", offset);
-                command.Parameters.AddWithValue("@pageSize", pageSize);
-
-                if (!string.IsNullOrEmpty(art))
-                {
-                    command.Parameters.AddWithValue("@art", art);
-                }
-
-                await using var reader = await command.ExecuteReaderAsync();
                 var results = new List<Dictionary<string, object>>();
-
+                await using var reader = await command.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
                     var row = new Dictionary<string, object>();
@@ -79,10 +109,8 @@ namespace MyApiProject.Controllers
                     results.Add(row);
                 }
 
-                // Devolvemos el resultado con la información de la paginación
                 var response = new
                 {
-                    TotalRecords = totalRecords,
                     Page = page,
                     PageSize = pageSize,
                     Data = results
@@ -92,8 +120,10 @@ namespace MyApiProject.Controllers
             }
             catch (Exception ex)
             {
-                return HandleException(ex); // Método para gestionar las excepciones
+                return HandleException(ex, query);
             }
         }
+
+
     }
 }

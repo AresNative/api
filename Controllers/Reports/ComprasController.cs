@@ -111,11 +111,16 @@ namespace MyApiProject.Controllers
                         NULLIF(A.TipoImpuesto1, ''), 
                         NULLIF(A.TipoImpuesto2, ''), 
                         NULLIF(A.TipoImpuesto3, '')
+                    ) as TypoImpuestos,
+					CONCAT_WS(', ', 
+                        NULLIF(A.Impuesto1, ''), 
+                        NULLIF(A.Impuesto2, ''), 
+                        NULLIF(A.Impuesto3, '')
                     ) as Impuestos
                 {baseQuery} {whereQuery}
                 ORDER BY cb.Codigo
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
-
+            //! calcular los precios con impuestos  %iva * (%ieps * costo)
             try
             {
                 int totalRecords;

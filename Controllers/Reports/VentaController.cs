@@ -1,181 +1,152 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using System.Data;
-using System.Text;
 using MyApiProject.Models;
+using System.Text;
 
 namespace MyApiProject.Controllers
 {
     public partial class Reporteria : BaseController
     {
+
         [HttpGet("api/v1/reporteria/ventas")]
         public async Task<IActionResult> ObtenerVentas(
-            [FromQuery] string? searchTerm,
-            [FromQuery] string? campoDistinct,
+            [FromQuery] string? codigo,
+            [FromQuery] string? articulo,
+            [FromQuery] string? descripcion,
+            [FromQuery] decimal? minPrecio,
+            [FromQuery] decimal? maxPrecio,
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
+            // Validación de paginación
             if (page <= 0) page = 1;
             if (pageSize <= 0 || pageSize > 100) pageSize = 10;
+
             int offset = (page - 1) * pageSize;
 
-            var parameters = new List<SqlParameter>();
+            // Construcción del query base
+            var baseQuery = @"
+                FROM 
+                    [TC032841E].[dbo].[VentaD] VTA
+                INNER JOIN 
+                    [TC032841E].[dbo].[Venta] VTE ON VTE.ID = VTA.ID
+                LEFT JOIN 
+                    [TC032841E].[dbo].[ART] A ON A.ARTICULO = VTA.Articulo
+                WHERE 
+                    VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')";
+
+            // Construcción de la cláusula WHERE de manera dinámica
             var whereClauses = new List<string>();
+            var parameters = new List<SqlParameter>();
 
-            // Mapeo de campos a la base de datos
-            var fieldMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            if (!string.IsNullOrEmpty(codigo))
             {
-                {"articulo", "VTA.Articulo"},
-                {"descripcion", "art.Descripcion1"},
-                {"categoria", "art.Categoria"},
-                {"grupo", "art.Grupo"},
-                {"linea", "art.Linea"},
-                {"familia", "art.Familia"},
-                {"unidad", "VTA.Unidad"},
-                {"tipoimpuesto", "VTA.TipoImpuesto1"},
-                {"estatus", "VTE.Estatus"},
-                {"mov", "VTE.Mov"},
-                {"sucursal", "VTE.Sucursal"},
-                {"fechainicio", "VTE.FechaEmision"},
-                {"fechafin", "VTE.FechaEmision"}
-            };
-
-            // Construcción de cláusulas WHERE dinámicas
-            foreach (var param in HttpContext.Request.Query)
+                whereClauses.Add("VTA.Codigo LIKE @Codigo");
+                parameters.Add(new SqlParameter("@Codigo", $"{codigo}"));
+            }
+            if (!string.IsNullOrEmpty(articulo))
             {
-                var paramName = param.Key.ToLower();
-                if (fieldMappings.ContainsKey(paramName) && !string.IsNullOrEmpty(param.Value))
-                {
-                    var fieldName = fieldMappings[paramName];
-                    var paramValue = param.Value.ToString();
-                    string sqlParamName = "@" + paramName;
-
-                    if (paramName == "fechainicio")
-                    {
-                        whereClauses.Add($"{fieldName} >= {sqlParamName}");
-                        parameters.Add(new SqlParameter(sqlParamName, SqlDbType.DateTime) { Value = DateTime.Parse(paramValue) });
-                    }
-                    else if (paramName == "fechafin")
-                    {
-                        whereClauses.Add($"{fieldName} <= {sqlParamName}");
-                        parameters.Add(new SqlParameter(sqlParamName, SqlDbType.DateTime) { Value = DateTime.Parse(paramValue) });
-                    }
-                    else
-                    {
-                        whereClauses.Add($"{fieldName} = {sqlParamName}");
-                        parameters.Add(new SqlParameter(sqlParamName, paramValue));
-                    }
-                }
+                whereClauses.Add("VTA.Articulo LIKE @Articulo");
+                parameters.Add(new SqlParameter("@Articulo", $"%{articulo}%"));
+            }
+            if (!string.IsNullOrEmpty(descripcion))
+            {
+                whereClauses.Add("A.Descripcion1 LIKE @Descripcion");
+                parameters.Add(new SqlParameter("@Descripcion", $"%{descripcion}%"));
+            }
+            if (minPrecio.HasValue)
+            {
+                whereClauses.Add("VTA.Precio >= @MinPrecio");
+                parameters.Add(new SqlParameter("@MinPrecio", minPrecio.Value));
+            }
+            if (maxPrecio.HasValue)
+            {
+                whereClauses.Add("VTA.Precio <= @MaxPrecio");
+                parameters.Add(new SqlParameter("@MaxPrecio", maxPrecio.Value));
+            }
+            if (startDate.HasValue)
+            {
+                whereClauses.Add("VTE.Fecha >= @StartDate");
+                parameters.Add(new SqlParameter("@StartDate", startDate.Value));
+            }
+            if (endDate.HasValue)
+            {
+                whereClauses.Add("VTE.Fecha <= @EndDate");
+                parameters.Add(new SqlParameter("@EndDate", endDate.Value));
             }
 
-            string whereClause = whereClauses.Any() ? "AND " + string.Join(" AND ", whereClauses) : "";
+            // Si hay cláusulas WHERE, agregarlas al query base
+            var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";
 
-            if (!string.IsNullOrEmpty(campoDistinct))
-            {
-                var camposValidos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    {"articulo", "VTA.Articulo"},
-                    {"descripcion1", "art.Descripcion1"},
-                    {"categoria", "art.Categoria"},
-                    {"grupo", "art.Grupo"},
-                    {"linea", "art.Linea"},
-                    {"familia", "art.Familia"},
-                    {"unidad", "VTA.Unidad"},
-                    {"tipoimpuesto1", "VTA.TipoImpuesto1"},
-                    {"tipoimpuesto2", "VTA.TipoImpuesto2"},
-                    {"tipoimpuesto3", "VTA.TipoImpuesto3"},
-                    {"estatus", "VTE.Estatus"},
-                    {"mov", "VTE.Mov"},
-                    {"sucursal", "VTE.Sucursal"},
-                    {"fechaemision", "VTE.FechaEmision"}
-                };
+            // Construcción de la consulta para el total de registros
+            var countQueryBuilder = new StringBuilder($"SELECT COUNT(1) {baseQuery} {whereQuery}");
 
-                if (!camposValidos.TryGetValue(campoDistinct.ToLower(), out string campoBD))
-                {
-                    return BadRequest("El campo especificado para 'campoDistinct' no es válido.");
-                }
+            // Construcción de la consulta con paginación
+            var queryBuilder = new StringBuilder($@"
+                USE [TC032841E]
+                SELECT 
+                    VTA.Codigo,
+                    VTA.Articulo,
+                    A.Descripcion1 AS Nombre,
+                    VTA.Precio,
+                    VTA.Costo,
+                    VTA.Cantidad,
+                    VTE.Importe,
+                    VTE.Impuestos,
+                    VTE.CostoTotal,
+                    VTE.PrecioTotal,
+                    CONCAT_WS(', ', 
+                        NULLIF(VTA.TipoImpuesto1, ''), 
+                        NULLIF(VTA.TipoImpuesto2, ''), 
+                        NULLIF(VTA.TipoImpuesto3, '')
+                    ) as TypoImpuestos,
+                    CONCAT_WS(', ', 
+                        NULLIF(VTA.Impuesto1, ''), 
+                        NULLIF(VTA.Impuesto2, ''), 
+                        NULLIF(VTA.Impuesto3, '')
+                    ) as Impuestos,
+                    VTA.Unidad,
+                    VTA.Sucursal,
+                    VTE.FechaEmision
+                {baseQuery} {whereQuery}
+                ORDER BY (SELECT NULL)
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
 
-                var queryDistinct = new StringBuilder($@"
-                    USE TC032841E
-                    SELECT DISTINCT {campoBD} AS Valor
-                    FROM VentaD VTA
-                    INNER JOIN Venta VTE ON VTE.ID = VTA.ID
-                    LEFT JOIN ART art ON art.ARTICULO = VTA.Articulo
-                    WHERE VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                    {whereClause}
-                    ORDER BY Valor
-                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
-
-                var countQueryDistinct = new StringBuilder($@"
-                    USE TC032841E
-                    SELECT COUNT(DISTINCT {campoBD}) 
-                    FROM VentaD VTA
-                    INNER JOIN Venta VTE ON VTE.ID = VTA.ID
-                    LEFT JOIN ART art ON art.ARTICULO = VTA.Articulo
-                    WHERE VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                    {whereClause}");
-
-                return await ExecutePaginatedQuery(queryDistinct.ToString(), countQueryDistinct.ToString(), parameters, offset, pageSize, page);
-            }
-            else
-            {
-                var query = new StringBuilder($@"
-                    USE TC032841E
-                    SELECT 
-                        VTA.Articulo,
-                        art.Descripcion1,
-                        art.Categoria,
-                        art.Grupo,
-                        art.Linea,
-                        art.Familia,
-                        VTA.Unidad,
-                        CONCAT_WS(', ', NULLIF(VTA.TipoImpuesto1, ''), NULLIF(VTA.TipoImpuesto2, ''), NULLIF(VTA.TipoImpuesto3, '')) AS id_type_taxes,
-                        SUM(VTA.Cantidad) AS TotalCantidad,
-                        SUM(VTA.Precio * VTA.Cantidad) AS TotalImporte
-                    FROM ART art
-                    RIGHT JOIN VentaD VTA ON art.ARTICULO = VTA.Articulo
-                    INNER JOIN Venta VTE ON VTE.ID = VTA.ID
-                    WHERE VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                    {whereClause}
-                    GROUP BY VTA.Articulo, art.Descripcion1, art.Categoria, art.Grupo, art.Linea, art.Familia, VTA.Unidad, VTA.TipoImpuesto1, VTA.TipoImpuesto2, VTA.TipoImpuesto3
-                    ORDER BY TotalCantidad DESC
-                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
-
-                var countQuery = new StringBuilder($@"
-                    USE TC032841E
-                    SELECT COUNT(*) FROM (
-                        SELECT VTA.Articulo
-                        FROM ART art
-                        RIGHT JOIN VentaD VTA ON art.ARTICULO = VTA.Articulo
-                        INNER JOIN Venta VTE ON VTE.ID = VTA.ID
-                        WHERE VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')
-                        {whereClause}
-                        GROUP BY VTA.Articulo, art.Descripcion1, art.Categoria, art.Grupo, art.Linea, art.Familia, VTA.Unidad, VTA.TipoImpuesto1, VTA.TipoImpuesto2, VTA.TipoImpuesto3
-                    ) AS CountTable");
-
-                return await ExecutePaginatedQuery(query.ToString(), countQuery.ToString(), parameters, offset, pageSize, page);
-            }
-        }
-
-        private async Task<IActionResult> ExecutePaginatedQuery(string query, string countQuery, List<SqlParameter> parameters, int offset, int pageSize, int page)
-        {
             try
             {
+                int totalRecords;
+
+                // Abre la conexión de forma segura
                 await using var connection = await OpenConnectionAsync();
 
-                // Ejecutamos la consulta de conteo total de registros
-                await using var countCommand = new SqlCommand(countQuery, connection);
-                parameters.ForEach(param => countCommand.Parameters.Add(new SqlParameter(param.ParameterName, param.Value)));
-                int totalRecords = (int)await countCommand.ExecuteScalarAsync();
+                // Crear una copia de los parámetros para el conteo
+                var countParameters = parameters.Select(p => new SqlParameter(p.ParameterName, p.Value)).ToArray();
 
-                // Ejecutamos la consulta paginada
-                await using var command = new SqlCommand(query, connection);
-                parameters.ForEach(param => command.Parameters.Add(new SqlParameter(param.ParameterName, param.Value)));
-                command.Parameters.Add(new SqlParameter("@Offset", offset));
-                command.Parameters.Add(new SqlParameter("@PageSize", pageSize));
+                // Ejecutar consulta para obtener el total de registros
+                await using (var countCommand = new SqlCommand(countQueryBuilder.ToString(), connection))
+                {
+                    countCommand.Parameters.AddRange(countParameters);
+                    totalRecords = (int)await countCommand.ExecuteScalarAsync();
+                }
 
-                var results = new List<Dictionary<string, object>>();
+                // Crear una copia de los parámetros para la consulta con paginación
+                var paginatedParameters = parameters.Select(p => new SqlParameter(p.ParameterName, p.Value)).ToList();
+                paginatedParameters.Add(new SqlParameter("@Offset", offset));
+                paginatedParameters.Add(new SqlParameter("@PageSize", pageSize));
+
+                // Ejecutar la consulta con paginación
+                await using var command = new SqlCommand(queryBuilder.ToString(), connection)
+                {
+                    CommandTimeout = 30
+                };
+                command.Parameters.AddRange(paginatedParameters.ToArray());
+
+                // Ejecuta la consulta
                 await using var reader = await command.ExecuteReaderAsync();
+                var results = new List<Dictionary<string, object>>();
+
                 while (await reader.ReadAsync())
                 {
                     var row = new Dictionary<string, object>();
@@ -186,11 +157,20 @@ namespace MyApiProject.Controllers
                     results.Add(row);
                 }
 
-                return Ok(new { TotalRecords = totalRecords, Page = page, PageSize = pageSize, Data = results });
+                // Crear la respuesta en el formato solicitado
+                var response = new
+                {
+                    TotalRecords = totalRecords,
+                    Page = page,
+                    PageSize = pageSize,
+                    Data = results
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                return HandleException(ex);
+                return HandleException(ex, queryBuilder.ToString());
             }
         }
     }

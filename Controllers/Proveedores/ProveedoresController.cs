@@ -40,7 +40,12 @@ namespace MyApiProject.Controllers
                     command.Parameters.AddWithValue("@Email", nuevoProveedor.email);
                     command.Parameters.AddWithValue("@Company", nuevoProveedor.company);
                     command.Parameters.AddWithValue("@Type_prod", nuevoProveedor.type_prod);
-                    command.Parameters.AddWithValue("@Department", nuevoProveedor.department);
+
+                    // Verifica si 'department' es nulo antes de agregarlo
+                    if (nuevoProveedor.department != null)
+                        command.Parameters.AddWithValue("@Department", nuevoProveedor.department);
+                    else
+                        command.Parameters.AddWithValue("@Department", DBNull.Value); // Si es nulo, asigna un valor nulo de SQL
 
                     var result = await command.ExecuteNonQueryAsync();
 
@@ -49,6 +54,7 @@ namespace MyApiProject.Controllers
                     else
                         return BadRequest(new { Message = "No se pudo registrar el proveedor" });
                 }
+
             }
             catch (Exception ex)
             {

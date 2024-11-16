@@ -13,7 +13,7 @@ namespace MyApiProject.Controllers
         public async Task<IActionResult> GetProjects()
         {
 
-            string query = "SELECT * FROM projects WHERE activo = 1";
+            string query = "SELECT * FROM projects";
 
             await using var connection = await OpenConnectionAsync();
             await using var command = new SqlCommand(query, connection);

@@ -1,3 +1,39 @@
 dotnet build
 
 dotnet publish  -o ./publish
+
+ - Command renew ssl wacs.exe --renew --baseuri "https://acme-v02.api.letsencrypt.org/"
+
+
+
+ C:\Win-ACME> wacs.exe --source manual --host api.mercadosliz.com
+
+ A simple Windows ACMEv2 client (WACS)
+ Software version 2.2.9.1701 (release, trimmed, standalone, 64-bit)
+ Connecting to https://acme-v02.api.letsencrypt.org/...
+ Connection OK!
+ Scheduled task not configured yet
+ Please report issues at https://github.com/win-acme/win-acme
+ Running in mode: Unattended
+ Source generated using plugin Manual: api.mercadosliz.com
+ Overwriting previously created renewal
+
+ Plugin Manual generated source api.mercadosliz.com with 1 identifiers
+ Plugin Single created 1 order
+ Source change in order Main detected
+ Renewing [Manual] api.mercadosliz.com
+ Using cache. To force a new order within 1 days, run with --nocache. Beware that you might run into rate limits.
+ Downloading certificate [Manual] api.mercadosliz.com
+ Store with CertificateStore...
+ Installing certificate in the certificate store
+ Adding certificate [Manual] api.mercadosliz.com @ 2024/11/17 in store WebHosting
+ Adding certificate CN=R11, O=Let's Encrypt, C=US in store CA
+ Adding Task Scheduler entry with the following settings
+ - Name win-acme renew (acme-v02.api.letsencrypt.org)
+ - Path C:\Win-ACME
+ - Command wacs.exe --renew --baseuri "https://acme-v02.api.letsencrypt.org/"
+ - Start at 09:00:00
+ - Random delay 04:00:00
+ - Time limit 02:00:00
+ Next renewal due after 2025/1/11
+ Certificate [Manual] api.mercadosliz.com created

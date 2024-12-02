@@ -68,12 +68,12 @@ namespace MyApiProject.Controllers
             }
             if (startDate.HasValue)
             {
-                whereClauses.Add("VTE.Fecha >= @StartDate");
+                whereClauses.Add("VTE.FechaEmision >= @StartDate");
                 parameters.Add(new SqlParameter("@StartDate", startDate.Value));
             }
             if (endDate.HasValue)
             {
-                whereClauses.Add("VTE.Fecha <= @EndDate");
+                whereClauses.Add("VTE.FechaEmision <= @EndDate");
                 parameters.Add(new SqlParameter("@EndDate", endDate.Value));
             }
 

@@ -87,6 +87,7 @@ namespace MyApiProject.Controllers
             var queryBuilder = new StringBuilder($@"
                 USE [TC032841E]
                 SELECT 
+                    ROW_NUMBER() OVER (ORDER BY VTA.Codigo) AS ID,
                     VTA.Codigo,
                     VTA.Articulo,
                     A.Descripcion1 AS Nombre,
@@ -97,19 +98,15 @@ namespace MyApiProject.Controllers
                     VTE.Impuestos,
                     VTE.CostoTotal,
                     VTE.PrecioTotal,
-                    CONCAT_WS(', ', 
-                        NULLIF(VTA.TipoImpuesto1, ''), 
-                        NULLIF(VTA.TipoImpuesto2, ''), 
-                        NULLIF(VTA.TipoImpuesto3, '')
-                    ) as TypoImpuestos,
-                    CONCAT_WS(', ', 
-                        NULLIF(VTA.Impuesto1, ''), 
-                        NULLIF(VTA.Impuesto2, ''), 
-                        NULLIF(VTA.Impuesto3, '')
-                    ) as Impuestos,
                     VTA.Unidad,
                     VTA.Sucursal,
-                    VTE.FechaEmision
+                    VTE.FechaEmision,
+                    NULLIF(VTA.TipoImpuesto1, '') AS [IVA], 
+                    NULLIF(VTA.TipoImpuesto2, '') AS [IEPS], 
+                    NULLIF(VTA.TipoImpuesto3, '') AS  [ISR],
+                    NULLIF(VTA.Impuesto1, '') AS [IVA%], 
+                    NULLIF(VTA.Impuesto2, '') AS [IEPS%], 
+                    NULLIF(VTA.Impuesto3, '') AS [ISR%]
                 {baseQuery} {whereQuery}
                 ORDER BY (SELECT NULL)
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");

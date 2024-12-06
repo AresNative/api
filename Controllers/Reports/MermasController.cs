@@ -66,6 +66,7 @@ namespace MyApiProject.Controllers
             var query = new StringBuilder($@"
                 USE TC032841E
                 SELECT
+                    ROW_NUMBER() OVER (ORDER BY inv.Articulo) AS ID,
                     inv.Articulo,
                     art.Descripcion1,
                     art.Categoria,
@@ -85,7 +86,7 @@ namespace MyApiProject.Controllers
                     art.Familia,
                     inv.Unidad
                 ORDER BY
-                    TotalCantidad DESC
+                    (SELECT NULL) DESC
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
 
             try

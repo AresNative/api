@@ -92,6 +92,7 @@ namespace MyApiProject.Controllers
             var queryBuilder = new StringBuilder($@"
                 USE [TC032841E]
                 SELECT
+                    ROW_NUMBER() OVER (ORDER BY cb.Codigo) AS ID,
                     cb.Codigo, 
                     cd.Articulo,
                     A.Descripcion1 AS Nombre,
@@ -107,18 +108,14 @@ namespace MyApiProject.Controllers
                     c.FechaEmision, 
                     c.Proveedor,
                     p.Nombre AS ProveedorNombre,
-                    CONCAT_WS(', ', 
-                        NULLIF(A.TipoImpuesto1, ''), 
-                        NULLIF(A.TipoImpuesto2, ''), 
-                        NULLIF(A.TipoImpuesto3, '')
-                    ) as TypoImpuestos,
-					CONCAT_WS(', ', 
-                        NULLIF(A.Impuesto1, ''), 
-                        NULLIF(A.Impuesto2, ''), 
-                        NULLIF(A.Impuesto3, '')
-                    ) as Impuestos
+                    NULLIF(A.TipoImpuesto1, '') AS [IVA], 
+                    NULLIF(A.TipoImpuesto2, '') AS [IEPS], 
+                    NULLIF(A.TipoImpuesto3, '') AS  [ISR],
+                    NULLIF(A.Impuesto1, '') AS [IVA%], 
+                    NULLIF(A.Impuesto2, '') AS [IEPS%], 
+                    NULLIF(A.Impuesto3, '') AS [ISR%]
                 {baseQuery} {whereQuery}
-                ORDER BY cb.Codigo
+                ORDER BY (SELECT NULL)
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
             //! calcular los precios con impuestos  %iva * (%ieps * costo)
             try

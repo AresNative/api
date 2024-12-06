@@ -45,6 +45,7 @@ namespace MyApiProject.Controllers
                 queryBuilder.Append($@"
                     USE TC032841E
                     SELECT 
+                        ROW_NUMBER() OVER (ORDER BY VTA.Articulo) AS ID,
                         VTA.Articulo,
                         art.Descripcion1,
                         art.Categoria,
@@ -77,7 +78,7 @@ namespace MyApiProject.Controllers
                         art.Linea,
                         art.Familia,
                         VTA.Unidad
-                    ORDER BY [Id] -- Reemplaza con la columna adecuada para ordenar los resultados
+                    ORDER BY (SELECT NULL)
                     OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY");
             }
 

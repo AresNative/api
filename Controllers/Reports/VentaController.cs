@@ -12,7 +12,7 @@ namespace MyApiProject.Controllers
         public async Task<IActionResult> ObtenerVentas(
             [FromQuery] string? codigo,
             [FromQuery] string? articulo,
-            [FromQuery] string? descripcion,
+            [FromQuery] string? descripcion1,
             [FromQuery] decimal? minPrecio,
             [FromQuery] decimal? maxPrecio,
             [FromQuery] DateTime? startDate,
@@ -51,10 +51,10 @@ namespace MyApiProject.Controllers
                 whereClauses.Add("VTA.Articulo LIKE @Articulo");
                 parameters.Add(new SqlParameter("@Articulo", $"%{articulo}%"));
             }
-            if (!string.IsNullOrEmpty(descripcion))
+            if (!string.IsNullOrEmpty(descripcion1))
             {
-                whereClauses.Add("A.Descripcion1 LIKE @Descripcion");
-                parameters.Add(new SqlParameter("@Descripcion", $"%{descripcion}%"));
+                whereClauses.Add("A.Descripcion1 LIKE @Descripcion1");
+                parameters.Add(new SqlParameter("@Descripcion1", $"%{descripcion1}%"));
             }
             if (minPrecio.HasValue)
             {

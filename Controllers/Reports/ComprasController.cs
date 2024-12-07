@@ -15,7 +15,7 @@ namespace MyApiProject.Controllers
             [FromQuery] string? estatus,
             [FromQuery] string? articulo,
             [FromQuery] string? proveedor,
-            [FromQuery] string? descripcion,
+            [FromQuery] string? descripcion1,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] int page = 1,
@@ -76,10 +76,10 @@ namespace MyApiProject.Controllers
                 whereClauses.Add("c.FechaEmision <= @EndDate");
                 parameters.Add(new SqlParameter("@EndDate", endDate.Value));
             }
-            if (!string.IsNullOrEmpty(descripcion))
+            if (!string.IsNullOrEmpty(descripcion1))
             {
-                whereClauses.Add("A.Descripcion1 LIKE @Descripcion");
-                parameters.Add(new SqlParameter("@Descripcion", $"%{descripcion}%"));
+                whereClauses.Add("A.Descripcion1 LIKE @Descripcion1");
+                parameters.Add(new SqlParameter("@Descripcion1", $"%{descripcion1}%"));
             }
 
             // Si hay cláusulas WHERE, agregarlas al query base

@@ -10,7 +10,7 @@ namespace MyApiProject.Controllers
         public async Task<IActionResult> ObtenerAlmacen(
         [FromQuery] string? estatus,
         [FromQuery] string? articulo,
-        [FromQuery] string? descripcion,
+        [FromQuery] string? descripcion1,
         [FromQuery] string? usuario,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
@@ -47,10 +47,10 @@ namespace MyApiProject.Controllers
                 whereClauses.Add("pl.Usuario LIKE @Usuario");
                 parameters.Add(new SqlParameter("@Usuario", $"%{usuario}%"));
             }
-            if (!string.IsNullOrEmpty(descripcion))
+            if (!string.IsNullOrEmpty(descripcion1))
             {
-                whereClauses.Add("a.Descripcion1 LIKE @Descripcion");
-                parameters.Add(new SqlParameter("@Descripcion", $"%{descripcion}%"));
+                whereClauses.Add("a.Descripcion1 LIKE @Descripcion1");
+                parameters.Add(new SqlParameter("@Descripcion1", $"%{descripcion1}%"));
             }
 
             // Agregar cláusulas WHERE a la consulta si existen

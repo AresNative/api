@@ -10,7 +10,7 @@ namespace MyApiProject.Controllers
         public async Task<IActionResult> ObtenerMermas(
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
-            [FromQuery] string? descripcion,
+            [FromQuery] string? descripcion1,
             [FromQuery] string? sucursal,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
@@ -52,10 +52,10 @@ namespace MyApiProject.Controllers
                 whereClauses.Add("Sucursal = @Sucursal");
                 parameters.Add(new SqlParameter("@Sucursal", sucursal));
             }
-            if (!string.IsNullOrEmpty(descripcion))
+            if (!string.IsNullOrEmpty(descripcion1))
             {
-                whereClauses.Add("art.Descripcion1 LIKE @Descripcion");
-                parameters.Add(new SqlParameter("@Descripcion", $"%{descripcion}%"));
+                whereClauses.Add("art.Descripcion1 LIKE @Descripcion1");
+                parameters.Add(new SqlParameter("@Descripcion1", $"%{descripcion1}%"));
             }
 
             var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";

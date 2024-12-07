@@ -22,7 +22,7 @@ namespace MyApiProject.Controllers
                     VTA.Articulo,
                     A.Descripcion1 AS Descripcion,
                     VTA.Unidad,
-                    VTA.Sucursal,
+                    VTA.Sucursal
                 FROM 
                     [TC032841E].[dbo].[VentaD] VTA
                 INNER JOIN 

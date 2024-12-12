@@ -29,11 +29,15 @@ namespace MyApiProject.Controllers
         // Método centralizado para manejar excepciones
         protected IActionResult HandleException(Exception ex, string? query = null)
         {
-            // Crea el objeto de respuesta con el mensaje de error
+            // Limpia los caracteres de nueva línea en el mensaje de error y la consulta
+            string sanitizedMessage = ex.Message.Replace("\r", "").Replace("\n", " ");
+            string? sanitizedQuery = query?.Replace("\r", "").Replace("\n", " ");
+
+            // Crea el objeto de respuesta con el mensaje de error limpio
             var response = new
             {
-                Message = $"Error: {ex.Message}",
-                Query = query // Se incluye solo si no es null
+                Message = $"Error: {sanitizedMessage}",
+                Query = sanitizedQuery // Se incluye solo si no es null
             };
 
             // Devuelve el estado de error con la respuesta

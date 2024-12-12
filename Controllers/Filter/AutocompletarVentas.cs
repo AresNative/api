@@ -21,7 +21,7 @@ namespace MyApiProject.Controllers
             int offset = (page - 1) * pageSize;
 
             // Validar que el campo de búsqueda sea permitido
-            var allowedFields = new[] { "cb.Codigo", "A.Descripcion1" };
+            var allowedFields = new[] { "cb.Codigo", "A.Descripcion1", "A.Proveedor", "A.Codigo", "A.Articulo", "A.Proveedor" };
             if (string.IsNullOrEmpty(searchField) || !allowedFields.Contains(searchField))
             {
                 return BadRequest(new { Message = "El campo de búsqueda no es válido." });
@@ -49,7 +49,7 @@ namespace MyApiProject.Controllers
             }
 
             // Si hay cláusulas WHERE, agregarlas al query base
-            var whereQuery = whereClauses.Any() ? $" WHERE {string.Join(" AND ", whereClauses)}" : "";
+            var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";
 
             // Construcción de la consulta para el total de registros
             var countQueryBuilder = new StringBuilder($"SELECT COUNT(DISTINCT {searchField}) {baseQuery} {whereQuery}");

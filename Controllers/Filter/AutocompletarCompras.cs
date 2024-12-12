@@ -22,7 +22,7 @@ namespace MyApiProject.Controllers
             int offset = (page - 1) * pageSize;
 
             // Validar que el campo de búsqueda sea permitido
-            var allowedFields = new[] { "cb.Codigo", "A.Descripcion1" };
+            var allowedFields = new[] { "cb.Codigo", "A.Descripcion1", "A.Proveedor", "A.Codigo", "A.Articulo", "A.Proveedor" };
             if (string.IsNullOrEmpty(searchField) || !allowedFields.Contains(searchField))
             {
                 return BadRequest(new { Message = "El campo de búsqueda no es válido." });

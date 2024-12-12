@@ -5,3 +5,4 @@ dotnet publish  -o ./publish
  - Command renew ssl wacs.exe --renew --baseuri "https://acme-v02.api.letsencrypt.org/"
  C:\Win-ACME> wacs.exe --source manual --host api.mercadosliz.com
 ----------------------------------------------------------------------------------------
+actualizar ip: nslookup matrizmercadoliz.dyndns.org

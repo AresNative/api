@@ -4,7 +4,7 @@ using MyApiProject.Models;
 
 namespace MyApiProject.Controllers
 {
-    public class Proveedor : BaseController
+    public partial class Proveedor : BaseController
     {
         public Proveedor(IConfiguration configuration) : base(configuration) { }
         [HttpPost("api/v1/proveedores")]

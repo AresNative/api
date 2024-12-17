@@ -48,9 +48,18 @@ public class Startup
             });
 
         services.AddControllers()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.MaxDepth = int.MaxValue; // Sin límite
+            })
             .AddNewtonsoftJson(options =>
             {
-                options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+                options.SerializerSettings.MaxDepth = null; // Sin límite de profundidad
+                options.SerializerSettings.Error = (sender, args) =>
+                {
+                    // Manejo de errores (opcional)
+                    args.ErrorContext.Handled = true;
+                };
             });
         // Registrar los controladores, servicios y otros componentes
         services.AddHttpClient();

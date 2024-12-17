@@ -7,13 +7,10 @@ namespace MyApiProject.Controllers
 {
     public partial class Estatico : BaseController
     {
-        public Estatico(IConfiguration configuration) : base(configuration) { }
 
-        [HttpGet("api/v1/estatico/historial-compras")]
-        public async Task<IActionResult> HistorialCompras(
+        [HttpGet("api/v1/estatico/historial-ventas")]
+        public async Task<IActionResult> HistorialVentas(
             [FromQuery] string? articulo,
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
             [FromQuery] int? top = 10,  // Añadido parámetro 'top' para limitar los registros
             [FromQuery] string? groupByColumn = null,  // Parámetro para la columna a agrupar
             [FromQuery] string? sumColumn = null)  // Parámetro para la columna a sumar
@@ -24,7 +21,7 @@ namespace MyApiProject.Controllers
             // Construcción del query base
             var baseQuery = @"
                 FROM 
-                    [TC032841E].[dbo].[HistorialCompra]";
+                    [TC032841E].[dbo].[VentaD]";
 
             // Construcción de la cláusula WHERE de manera dinámica con LIKE y rango de fechas
             var whereClauses = new List<string>();
@@ -32,19 +29,8 @@ namespace MyApiProject.Controllers
 
             if (!string.IsNullOrEmpty(articulo))
             {
-                whereClauses.Add("DescripcionArt LIKE @articulo");
+                whereClauses.Add("Articulo LIKE @articulo");
                 parameters.Add(new SqlParameter("@articulo", $"%{articulo}%"));
-            }
-
-            if (startDate.HasValue)
-            {
-                whereClauses.Add("FechaEmision >= @StartDate");
-                parameters.Add(new SqlParameter("@StartDate", startDate.Value));
-            }
-            if (endDate.HasValue)
-            {
-                whereClauses.Add("FechaEmision <= @EndDate");
-                parameters.Add(new SqlParameter("@EndDate", endDate.Value));
             }
 
             // Si hay cláusulas WHERE, agregarlas al query base
@@ -54,11 +40,11 @@ namespace MyApiProject.Controllers
             var queryBuilder = new StringBuilder($@"
                 USE [TC032841E]
                 SELECT TOP {top.Value}
-                    {groupByColumn ?? "ProveedorNom"},
+                    {groupByColumn ?? "Almacen"},
                     SUM(ROUND({sumColumn ?? "Costo"}, 2)) AS Total,
-                    COUNT(*) AS NumeroCompras
+                    COUNT(*) AS NumeroVentas
                     {baseQuery} {whereQuery}
-                    GROUP BY {groupByColumn ?? "ProveedorNom"}
+                    GROUP BY {groupByColumn ?? "Almacen"}
                     order by Total desc
             ");
 

@@ -97,7 +97,7 @@ namespace MyApiProject.Controllers
                 }
 
                 var queryDistinct = new StringBuilder($@"
-                    USE TC032841E
+                    
                     SELECT DISTINCT {campoBD} AS Valor
                     FROM VentaD VTA
                     INNER JOIN Venta VTE ON VTE.ID = VTA.ID
@@ -108,7 +108,7 @@ namespace MyApiProject.Controllers
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
 
                 var countQueryDistinct = new StringBuilder($@"
-                    USE TC032841E
+                    
                     SELECT COUNT(DISTINCT {campoBD}) 
                     FROM VentaD VTA
                     INNER JOIN Venta VTE ON VTE.ID = VTA.ID
@@ -121,7 +121,7 @@ namespace MyApiProject.Controllers
             else
             {
                 var query = new StringBuilder($@"
-                    USE TC032841E
+                    
                     SELECT 
                         VTA.Articulo,
                         art.Descripcion1,
@@ -143,7 +143,7 @@ namespace MyApiProject.Controllers
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
 
                 var countQuery = new StringBuilder($@"
-                    USE TC032841E
+                    
                     SELECT COUNT(*) FROM (
                         SELECT VTA.Articulo
                         FROM ART art

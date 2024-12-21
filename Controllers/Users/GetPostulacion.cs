@@ -55,7 +55,7 @@ namespace MyApiProject.Controllers
                                     ,[tipo_relacion]
                                     ,[sucursal]
                                     ,[vacante]
-                                FROM [LOCAL_TC032391E].[dbo].[Postulaciones]";
+                                FROM [Postulaciones]";
 
             // Construcción de la cláusula WHERE de manera dinámica
             var whereClauses = new List<string>();

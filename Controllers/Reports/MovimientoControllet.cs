@@ -21,7 +21,7 @@ namespace MyApiProject.Controllers
 
             var baseQuery = @"
                 FROM 
-                    [LOCAL_TC032391E].[dbo].[V0_Articles]";
+                    [V0_Articles]";
             var whereClause = string.Empty;
             var countQueryBuilder = new StringBuilder($"SELECT COUNT(*) {baseQuery}");
             var queryBuilder = new StringBuilder();
@@ -43,7 +43,7 @@ namespace MyApiProject.Controllers
                 countQueryBuilder.Append(whereClause);
 
                 queryBuilder.Append($@"
-                    USE TC032841E
+                    
                     SELECT 
                         ROW_NUMBER() OVER (ORDER BY VTA.Articulo) AS ID,
                         VTA.Articulo,

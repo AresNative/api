@@ -18,7 +18,7 @@ namespace MyApiProject.Controllers
             }
 
             // Construcción del query para INSERT
-            var insertQuery = @"INSERT INTO [LOCAL_TC032391E].[dbo].[Website_Valoracion] 
+            var insertQuery = @"INSERT INTO [Website_Valoracion] 
                                 ([comment], [valor]) 
                                 VALUES (@Comment, @Valor);
                                 SELECT SCOPE_IDENTITY();"; // Devuelve el ID generado

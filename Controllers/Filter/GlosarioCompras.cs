@@ -16,7 +16,7 @@ namespace MyApiProject.Controllers
                 // Abre la conexión a la base de datos
                 await using var connection = await OpenConnectionAsync();
                 await using var command = new SqlCommand(@"
-                USE [TC032841E]
+                
                 SELECT
                     cb.Codigo, 
                     cd.Articulo,
@@ -26,17 +26,17 @@ namespace MyApiProject.Controllers
                     cd.Sucursal,
                     p.Nombre AS ProveedorNombre
                 FROM 
-                    [TC032841E].[dbo].[CB] cb
+                    [CB] cb
                 JOIN 
-                    [TC032841E].[dbo].[CompraD] cd ON cb.Cuenta = cd.Articulo 
+                    [CompraD] cd ON cb.Cuenta = cd.Articulo 
                 LEFT JOIN 
-                    [TC032841E].[dbo].[Compra] c ON cd.ID = c.ID
+                    [Compra] c ON cd.ID = c.ID
                 LEFT JOIN 
-                    [TC032841E].[dbo].[Prov] p ON c.Proveedor = p.Proveedor
+                    [Prov] p ON c.Proveedor = p.Proveedor
                 LEFT JOIN
-                    [TC032841E].[dbo].[ArtUnidad] U ON cb.Cuenta = U.Articulo
+                    [ArtUnidad] U ON cb.Cuenta = U.Articulo
                 LEFT JOIN
-                    [TC032841E].[dbo].[Art] A ON cb.Cuenta = A.Articulo
+                    [Art] A ON cb.Cuenta = A.Articulo
                 ORDER BY (SELECT NULL)
                 OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY", connection) // Solo un registro para obtener columnas
                 {

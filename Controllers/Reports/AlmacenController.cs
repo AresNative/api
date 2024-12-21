@@ -58,7 +58,6 @@ namespace MyApiProject.Controllers
 
             // Construcción de la consulta completa con paginación
             var query = $@"
-            USE [TC032841E]
             SELECT
             pv.Articulo,            
             A.Descripcion1 AS Descripcion,

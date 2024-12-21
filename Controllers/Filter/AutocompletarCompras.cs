@@ -31,15 +31,15 @@ namespace MyApiProject.Controllers
             // Construcción del query base
             var baseQuery = @"
         FROM 
-            [TC032841E].[dbo].[CB] cb
+            [CB] cb
         JOIN 
-            [TC032841E].[dbo].[CompraD] cd ON cb.Cuenta = cd.Articulo 
+            [CompraD] cd ON cb.Cuenta = cd.Articulo 
         LEFT JOIN 
-            [TC032841E].[dbo].[Compra] c ON cd.ID = c.ID
+            [Compra] c ON cd.ID = c.ID
         LEFT JOIN 
-            [TC032841E].[dbo].[Prov] p ON c.Proveedor = p.Proveedor
+            [Prov] p ON c.Proveedor = p.Proveedor
         LEFT JOIN
-            [TC032841E].[dbo].[Art] A ON cb.Cuenta = A.Articulo";
+            [Art] A ON cb.Cuenta = A.Articulo";
 
             // Construcción de la cláusula WHERE de manera dinámica
             var whereClauses = new List<string>();
@@ -59,7 +59,7 @@ namespace MyApiProject.Controllers
 
             // Construcción de la consulta con paginación
             var queryBuilder = new StringBuilder($@"
-        USE [TC032841E]
+        
         SELECT DISTINCT
             {searchField} AS SearchResult
         {baseQuery} {whereQuery}

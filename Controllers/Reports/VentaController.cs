@@ -29,11 +29,11 @@ namespace MyApiProject.Controllers
             // Construcción del query base
             var baseQuery = @"
                 FROM 
-                    [TC032841E].[dbo].[VentaD] VTA
+                    [VentaD] VTA
                 INNER JOIN 
-                    [TC032841E].[dbo].[Venta] VTE ON VTE.ID = VTA.ID
+                    [Venta] VTE ON VTE.ID = VTA.ID
                 LEFT JOIN 
-                    [TC032841E].[dbo].[ART] A ON A.ARTICULO = VTA.Articulo
+                    [ART] A ON A.ARTICULO = VTA.Articulo
                 WHERE 
                     VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')";
 
@@ -85,7 +85,7 @@ namespace MyApiProject.Controllers
 
             // Construcción de la consulta con paginación
             var queryBuilder = new StringBuilder($@"
-                USE [TC032841E]
+                
                 SELECT 
                     ROW_NUMBER() OVER (ORDER BY VTA.Codigo) AS ID,
                     VTA.Codigo,

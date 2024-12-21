@@ -34,7 +34,7 @@ namespace MyApiProject.Controllers
 
             // Consultas SQL
             string queryPrecios = @"
-                USE TC032841E;
+                
                 SELECT 
                     CB.Codigo, 
                     CB.Cuenta, 
@@ -42,10 +42,10 @@ namespace MyApiProject.Controllers
                     ListaPreciosDUnidad.Unidad, 
                     ListaPreciosDUnidad.Precio,
                     ArtUnidad.Factor 
-                FROM [TC032841E].[dbo].[CB]
-                INNER JOIN [TC032841E].[dbo].Art ON CB.Cuenta = Art.Articulo 
-                INNER JOIN [TC032841E].[dbo].ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
-                INNER JOIN [TC032841E].[dbo].ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
+                FROM [CB]
+                INNER JOIN Art ON CB.Cuenta = Art.Articulo 
+                INNER JOIN ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
+                INNER JOIN ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
                 WHERE 
                     ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
                     AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
@@ -56,7 +56,7 @@ namespace MyApiProject.Controllers
 
             string queryArticuloPorCodigo = @"
                 SELECT Cuenta 
-                FROM [TC032841E].[dbo].[CB]
+                FROM [CB]
                 WHERE Codigo = @Codigo;
             ";
 
@@ -67,8 +67,8 @@ namespace MyApiProject.Controllers
                     Oferta.FechaD,
                     Oferta.FechaA
                 FROM 
-                    [TC032841E].[dbo].OfertaD 
-                INNER JOIN [TC032841E].[dbo].Oferta ON OfertaD.ID = Oferta.ID
+                    OfertaD 
+                INNER JOIN Oferta ON OfertaD.ID = Oferta.ID
                 WHERE
                     OfertaD.Articulo = @Articulo
                     AND Oferta.FechaD < GETDATE() 

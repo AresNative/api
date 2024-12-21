@@ -21,7 +21,7 @@ namespace MyApiProject.Controllers
             // Construcción del query base
             var baseQuery = @"
                 FROM 
-                    [TC032841E].[dbo].[VentaD]";
+                    VentaD";
 
             // Construcción de la cláusula WHERE de manera dinámica con LIKE y rango de fechas
             var whereClauses = new List<string>();
@@ -38,7 +38,6 @@ namespace MyApiProject.Controllers
 
             // Construcción de la consulta con agrupación y suma
             var queryBuilder = new StringBuilder($@"
-                USE [TC032841E]
                 SELECT TOP {top.Value}
                     {groupByColumn ?? "Almacen"},
                     SUM(ROUND({sumColumn ?? "Costo"}, 2)) AS Total,

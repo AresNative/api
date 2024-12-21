@@ -13,7 +13,7 @@ namespace MyApiProject.Controllers
             // Construcción del query base
             var baseQuery = @"SELECT [comment]
                                     ,[valor]
-                                FROM [LOCAL_TC032391E].[dbo].[Website_Valoracion]";
+                                FROM [Website_Valoracion]";
 
             // Construcción de la cláusula WHERE de manera dinámica
             var whereClauses = new List<string>();

@@ -19,7 +19,7 @@ namespace MyApiProject.Controllers
         {
             // Construcción del query base
             var baseQuery = @"SELECT [id], [name], [email], [company], [type_prod], [department], [rfc], [addres], [code], [ability], [id_permission]
-                              FROM [LOCAL_TC032391E].[dbo].[Website_proveedores]";
+                              FROM [Website_proveedores]";
 
             // Construcción de la cláusula WHERE de manera dinámica
             var whereClauses = new List<string>();

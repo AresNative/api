@@ -21,7 +21,10 @@ namespace MyApiProject.Controllers
 
         // GET: api/precios
         [HttpGet]
-        public async Task<IActionResult> GetPrecios([FromQuery] string? filtro)
+        public async Task<IActionResult> GetPrecios(
+            [FromQuery] string? filtro,
+            [FromQuery] string? sucursal
+        )
         {
             if (string.IsNullOrEmpty(filtro))
             {
@@ -33,8 +36,7 @@ namespace MyApiProject.Controllers
             string articulo = filtro; // Por defecto, asumimos que el filtro es el artículo
 
             // Consultas SQL
-            string queryPrecios = @"
-                
+            string queryPrecios = $@"
                 SELECT 
                     CB.Codigo, 
                     CB.Cuenta, 
@@ -47,7 +49,7 @@ namespace MyApiProject.Controllers
                 INNER JOIN ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
                 INNER JOIN ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
                 WHERE 
-                    ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
+                    ListaPreciosDUnidad.Lista = '{sucursal}' 
                     AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
                     AND CB.Unidad = ArtUnidad.Unidad 
                     AND (CB.Codigo = @Filtro OR Art.Articulo = @Filtro OR Art.Descripcion1 LIKE '%' + @Filtro + '%')

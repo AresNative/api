@@ -10,13 +10,7 @@ namespace MyApiProject.Controllers
 
         [HttpGet("api/v1/reporteria/ventas")]
         public async Task<IActionResult> ObtenerVentas(
-            [FromQuery] string? codigo,
-            [FromQuery] string? articulo,
-            [FromQuery] string? descripcion1,
-            [FromQuery] decimal? minPrecio,
-            [FromQuery] decimal? maxPrecio,
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
+            [FromQuery] Dictionary<string, string?> filters,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
@@ -41,40 +35,16 @@ namespace MyApiProject.Controllers
             var whereClauses = new List<string>();
             var parameters = new List<SqlParameter>();
 
-            if (!string.IsNullOrEmpty(codigo))
+            foreach (var filter in filters)
             {
-                whereClauses.Add("VTA.Codigo LIKE @Codigo");
-                parameters.Add(new SqlParameter("@Codigo", $"{codigo}"));
-            }
-            if (!string.IsNullOrEmpty(articulo))
-            {
-                whereClauses.Add("VTA.Articulo LIKE @Articulo");
-                parameters.Add(new SqlParameter("@Articulo", $"%{articulo}%"));
-            }
-            if (!string.IsNullOrEmpty(descripcion1))
-            {
-                whereClauses.Add("A.Descripcion1 LIKE @Descripcion1");
-                parameters.Add(new SqlParameter("@Descripcion1", $"%{descripcion1}%"));
-            }
-            if (minPrecio.HasValue)
-            {
-                whereClauses.Add("VTA.Precio >= @MinPrecio");
-                parameters.Add(new SqlParameter("@MinPrecio", minPrecio.Value));
-            }
-            if (maxPrecio.HasValue)
-            {
-                whereClauses.Add("VTA.Precio <= @MaxPrecio");
-                parameters.Add(new SqlParameter("@MaxPrecio", maxPrecio.Value));
-            }
-            if (startDate.HasValue)
-            {
-                whereClauses.Add("VTE.FechaEmision >= @StartDate");
-                parameters.Add(new SqlParameter("@StartDate", startDate.Value));
-            }
-            if (endDate.HasValue)
-            {
-                whereClauses.Add("VTE.FechaEmision <= @EndDate");
-                parameters.Add(new SqlParameter("@EndDate", endDate.Value));
+                if (!string.IsNullOrEmpty(filter.Value))
+                {
+                    var columnName = filter.Key;
+                    var parameterName = $"@{filter.Key.Replace(".", "_")}"; // Reemplaza puntos en nombres de columnas si es necesario
+
+                    whereClauses.Add($"{columnName} LIKE {parameterName}");
+                    parameters.Add(new SqlParameter(parameterName, $"%{filter.Value}%"));
+                }
             }
 
             // Si hay cláusulas WHERE, agregarlas al query base

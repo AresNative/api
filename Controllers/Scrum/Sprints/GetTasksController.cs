@@ -11,7 +11,7 @@ namespace MyApiProject.Controllers
         public async Task<IActionResult> GetTasksBySprint(int sprintId)
         {
 
-            string query = "SELECT * FROM tasks WHERE id = @SprintId";
+            string query = "SELECT * FROM tasks WHERE sprint_id = @SprintId";
 
             await using var connection = await OpenConnectionAsync();
             await using var command = new SqlCommand(query, connection);

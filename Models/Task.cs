@@ -9,5 +9,8 @@ namespace MyApiProject.Models
         public DateTime feche_creacion { get; set; }
         public DateTime feche_vencimiento { get; set; }
         public string estado { get; set; }
+
+        public string descripcion { get; set; }
+        public string prioridad { get; set; }
     }
 }

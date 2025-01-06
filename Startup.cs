@@ -70,6 +70,7 @@ public class Startup
         services.AddScoped<TokensUtils>();
         services.AddSwaggerGen(c =>
     {
+        c.OperationFilter<SwaggerFileUploadOperationFilter>();
         c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
 
         // Configuración de seguridad para JWT en Swagger

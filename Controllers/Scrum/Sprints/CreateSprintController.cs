@@ -21,8 +21,8 @@ namespace MyApiProject.Controllers
             command.Parameters.AddWithValue("@ProjectId", projectId);
             command.Parameters.AddWithValue("@Nombre", newSprint.nombre);
             command.Parameters.AddWithValue("@Estado", newSprint.estado);
-            command.Parameters.AddWithValue("@FechaInicio", newSprint.feche_inicio);
-            command.Parameters.AddWithValue("@FechaFin", newSprint.feche_fin);
+            command.Parameters.AddWithValue("@FechaInicio", newSprint.fecha_inicio);
+            command.Parameters.AddWithValue("@FechaFin", newSprint.fecha_fin);
 
             var result = await command.ExecuteNonQueryAsync();
             return Ok(result);

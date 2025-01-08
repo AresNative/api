@@ -1,18 +1,17 @@
-/* using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace MyApiProject.Controllers
 {
     public partial class ImagenesController : BaseController
     {
         public ImagenesController(IConfiguration configuration) : base(configuration) { }
-
         [HttpPost("api/v1/imagenes/upload")]
-        public async Task<IActionResult> SubirImagen([FromForm] IFormFile image)
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult> SubirImagen([FromForm] UploadDto uploadDto)
         {
+            var image = uploadDto.File;
             // Validar entrada
             if (image == null || image.Length == 0)
             {
@@ -33,9 +32,9 @@ namespace MyApiProject.Controllers
 
             // Query de inserción
             var query = @"
-                INSERT INTO Imagenes (Ruta, FechaSubida)
-                VALUES (@Ruta, GETDATE());
-                SELECT SCOPE_IDENTITY();";
+                    INSERT INTO Imagenes (Ruta, FechaSubida)
+                    VALUES (@Ruta, GETDATE());
+                    SELECT SCOPE_IDENTITY();";
 
             try
             {
@@ -77,6 +76,6 @@ namespace MyApiProject.Controllers
                 return StatusCode(500, new { Message = "Se produjo un error inesperado.", Detail = ex.Message });
             }
         }
+
     }
 }
- */

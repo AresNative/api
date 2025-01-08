@@ -69,36 +69,37 @@ public class Startup
         services.AddScoped<AuthUtils>();
         services.AddScoped<TokensUtils>();
         services.AddSwaggerGen(c =>
-    {
-        c.OperationFilter<SwaggerFileUploadOperationFilter>();
-        c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
-
-        // Configuración de seguridad para JWT en Swagger
-        c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
-            Name = "Authorization",
-            Type = SecuritySchemeType.ApiKey,
-            Scheme = "Bearer",
-            BearerFormat = "JWT",
-            In = ParameterLocation.Header,
-            Description = "Ingrese el token JWT en este formato: Bearer {token}"
-        });
+            c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+            c.OperationFilter<FileUploadOperationFilter>();
 
-        c.AddSecurityRequirement(new OpenApiSecurityRequirement
-        {
+            // Configuración de seguridad para JWT
+            c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
-                new OpenApiSecurityScheme
+                Name = "Authorization",
+                Type = SecuritySchemeType.ApiKey,
+                Scheme = "Bearer",
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header,
+                Description = "Ingrese el token JWT en este formato: Bearer {token}"
+            });
+
+            c.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
                 {
-                    Reference = new OpenApiReference
+                    new OpenApiSecurityScheme
                     {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Bearer"
-                    }
-                },
-                new string[] {}
-            }
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    new string[] {}
+                }
+            });
         });
-    });
+
     }
 
     // Método para configurar el pipeline de la aplicación

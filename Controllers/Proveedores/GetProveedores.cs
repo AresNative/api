@@ -15,10 +15,11 @@ namespace MyApiProject.Controllers
             [FromQuery] string? rfc,
             [FromQuery] string? addres,
             [FromQuery] string? code,
-            [FromQuery] string? ability)
+            [FromQuery] string? ability,
+            [FromQuery] string? telefono)
         {
             // Construcción del query base
-            var baseQuery = @"SELECT [id], [name], [email], [company], [type_prod], [department], [rfc], [addres], [code], [ability], [id_permission]
+            var baseQuery = @"SELECT *
                               FROM [LOCAL_TC032391E].[dbo].[Website_proveedores]";
 
             // Construcción de la cláusula WHERE de manera dinámica
@@ -69,6 +70,11 @@ namespace MyApiProject.Controllers
             {
                 whereClauses.Add("[ability] LIKE @Ability");
                 parameters.Add(new SqlParameter("@Ability", $"%{ability}%"));
+            }
+            if (!string.IsNullOrEmpty(telefono))
+            {
+                whereClauses.Add("[telefono] LIKE @Teleftelefono");
+                parameters.Add(new SqlParameter("@Teleftelefono", $"%{telefono}%"));
             }
 
             // Si hay cláusulas WHERE, agregarlas al query base

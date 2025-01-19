@@ -11,11 +11,7 @@ namespace MyApiProject.Controllers
 
         [HttpGet("api/v1/reporteria/compras")]
         public async Task<IActionResult> ObtenerCompras(
-            [FromQuery] string? codigo,
-            [FromQuery] string? estatus,
-            [FromQuery] string? articulo,
-            [FromQuery] string? proveedor,
-            [FromQuery] string? descripcion1,
+            [FromQuery] Dictionary<string, string?> filters,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] int page = 1,
@@ -30,42 +26,43 @@ namespace MyApiProject.Controllers
             // Construcción del query base
             var baseQuery = @"
                 FROM 
-                    [TC032841E].[dbo].[CB] cb
+                    CB cb
                 JOIN 
-                    [TC032841E].[dbo].[CompraD] cd ON cb.Cuenta = cd.Articulo 
+                    CompraD cd ON cb.Cuenta = cd.Articulo 
                 LEFT JOIN 
-                    [TC032841E].[dbo].[Compra] c ON cd.ID = c.ID
+                    Compra c ON cd.ID = c.ID
                 LEFT JOIN 
-                    [TC032841E].[dbo].[Prov] p ON c.Proveedor = p.Proveedor
+                    Prov p ON c.Proveedor = p.Proveedor
                 LEFT JOIN
-                    [TC032841E].[dbo].[ArtUnidad] U ON cb.Cuenta = U.Articulo
+                    ArtUnidad U ON cb.Cuenta = U.Articulo
                 LEFT JOIN
-                    [TC032841E].[dbo].[Art] A ON cb.Cuenta = A.Articulo";
+                    Art A ON cb.Cuenta = A.Articulo";
 
-            // Construcción de la cláusula WHERE de manera dinámica con LIKE y rango de fechas
+            // Construcción de la cláusula WHERE de manera dinámica con filtros y fechas
             var whereClauses = new List<string>();
             var parameters = new List<SqlParameter>();
 
-            if (!string.IsNullOrEmpty(codigo))
+            // Procesar los filtros dinámicos
+            foreach (var filter in filters)
             {
-                whereClauses.Add("cb.Codigo LIKE @Codigo");
-                parameters.Add(new SqlParameter("@Codigo", $"{codigo}"));
+                // Omitir los filtros "page" y "pageSize"
+                if (filter.Key.Equals("page", StringComparison.OrdinalIgnoreCase) ||
+                    filter.Key.Equals("pageSize", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(filter.Value))
+                {
+                    var columnName = filter.Key;
+                    var parameterName = $"@{filter.Key.Replace(".", "_")}";
+                    whereClauses.Add($"{columnName} LIKE {parameterName}");
+                    parameters.Add(new SqlParameter(parameterName, $"%{filter.Value}%"));
+                }
             }
-            if (!string.IsNullOrEmpty(estatus))
-            {
-                whereClauses.Add("c.Estatus LIKE @Estatus");
-                parameters.Add(new SqlParameter("@Estatus", $"%{estatus}%"));
-            }
-            if (!string.IsNullOrEmpty(articulo))
-            {
-                whereClauses.Add("cd.Articulo LIKE @Articulo");
-                parameters.Add(new SqlParameter("@Articulo", $"%{articulo}%"));
-            }
-            if (!string.IsNullOrEmpty(proveedor))
-            {
-                whereClauses.Add("c.Proveedor LIKE @Proveedor");
-                parameters.Add(new SqlParameter("@Proveedor", $"%{proveedor}%"));
-            }
+
+
+            // Agregar filtros de rango de fechas
             if (startDate.HasValue)
             {
                 whereClauses.Add("c.FechaEmision >= @StartDate");
@@ -75,11 +72,6 @@ namespace MyApiProject.Controllers
             {
                 whereClauses.Add("c.FechaEmision <= @EndDate");
                 parameters.Add(new SqlParameter("@EndDate", endDate.Value));
-            }
-            if (!string.IsNullOrEmpty(descripcion1))
-            {
-                whereClauses.Add("A.Descripcion1 LIKE @Descripcion1");
-                parameters.Add(new SqlParameter("@Descripcion1", $"%{descripcion1}%"));
             }
 
             // Si hay cláusulas WHERE, agregarlas al query base
@@ -117,10 +109,11 @@ namespace MyApiProject.Controllers
                 {baseQuery} {whereQuery}
                 ORDER BY (SELECT NULL)
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
-            //! calcular los precios con impuestos  %iva * (%ieps * costo)
+
             try
             {
                 int totalRecords;
+
                 // Abre la conexión de forma segura
                 await using var connection = await OpenConnectionAsync();
 

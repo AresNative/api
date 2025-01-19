@@ -1,10 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using System;
-using System.Linq;
 
 namespace MyApiProject.Controllers
 {
@@ -35,61 +30,46 @@ namespace MyApiProject.Controllers
             // Consultas SQL
             string queryPrecios = @"
                 USE TC032841E;
-                SELECT 
+                SELECT TOP (1)
                     CB.Codigo, 
                     CB.Cuenta, 
                     Art.Descripcion1, 
                     ListaPreciosDUnidad.Unidad, 
                     ListaPreciosDUnidad.Precio,
-                    ArtUnidad.Factor 
-                FROM [TC032841E].[dbo].[CB]
-                INNER JOIN [TC032841E].[dbo].Art ON CB.Cuenta = Art.Articulo 
-                INNER JOIN [TC032841E].[dbo].ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
-                INNER JOIN [TC032841E].[dbo].ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
+                    ArtUnidad.Factor,
+                    Art.UltimoCambio
+                FROM CB
+                INNER JOIN Art ON CB.Cuenta = Art.Articulo 
+                INNER JOIN ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
+                INNER JOIN ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
                 WHERE 
                     ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
                     AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
                     AND CB.Unidad = ArtUnidad.Unidad 
                     AND (CB.Codigo = @Filtro OR Art.Articulo = @Filtro OR Art.Descripcion1 LIKE '%' + @Filtro + '%')
-                ORDER BY ArtUnidad.Factor ASC;
-            ";
-
-            string queryArticuloPorCodigo = @"
-                SELECT Cuenta 
-                FROM [TC032841E].[dbo].[CB]
-                WHERE Codigo = @Codigo;
+                ORDER BY Art.UltimoCambio DESC;
             ";
 
             string queryOfertas = @"
+                USE TC032841E;
                 SELECT 
                     OfertaD.Articulo,
                     OfertaD.Precio,
                     Oferta.FechaD,
                     Oferta.FechaA
                 FROM 
-                    [TC032841E].[dbo].OfertaD 
-                INNER JOIN [TC032841E].[dbo].Oferta ON OfertaD.ID = Oferta.ID
+                    OfertaD 
+                INNER JOIN Oferta ON OfertaD.ID = Oferta.ID
                 WHERE
                     OfertaD.Articulo = @Articulo
-                    AND Oferta.FechaD < GETDATE() 
-                    AND Oferta.FechaA > GETDATE();
+                --AND Oferta.FechaD < GETDATE() 
+                --AND Oferta.FechaA > GETDATE();
             ";
+
 
             try
             {
                 await using var connection = await OpenConnection();
-
-                // Si el filtro es un código, obtener el artículo correspondiente desde la columna 'Cuenta'
-                await using (var commandArticulo = new SqlCommand(queryArticuloPorCodigo, connection))
-                {
-                    commandArticulo.Parameters.AddWithValue("@Codigo", filtro);
-                    var result = await commandArticulo.ExecuteScalarAsync();
-
-                    if (result != null)
-                    {
-                        articulo = result.ToString(); // Actualizar el filtro con el artículo encontrado
-                    }
-                }
 
                 // Ejecutar consulta de precios
                 await using (var commandPrecios = new SqlCommand(queryPrecios, connection))

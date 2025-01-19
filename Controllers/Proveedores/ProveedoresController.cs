@@ -13,8 +13,8 @@ namespace MyApiProject.Controllers
             // Consulta SQL para verificar si ya existe un proveedor con el mismo email
             string checkUserQuery = @"SELECT COUNT(1) FROM Website_proveedores WHERE email = @Email";
             // Consulta SQL para registrar un nuevo proveedor
-            string insertUserQuery = @"INSERT INTO Website_proveedores (name, email, company, type_prod, department) 
-                                       VALUES (@name, @Email, @Company, @Type_prod, @Department)";
+            string insertUserQuery = @"INSERT INTO Website_proveedores (name, email, company, type_prod, telefono, department) 
+                                       VALUES (@name, @Email, @Company, @Type_prod, @Telefono, @Department)";
 
             try
             {
@@ -40,6 +40,7 @@ namespace MyApiProject.Controllers
                     command.Parameters.AddWithValue("@Email", nuevoProveedor.email);
                     command.Parameters.AddWithValue("@Company", nuevoProveedor.company);
                     command.Parameters.AddWithValue("@Type_prod", nuevoProveedor.type_prod);
+                    command.Parameters.AddWithValue("@Telefono", nuevoProveedor.telefono);
 
                     // Verifica si 'department' es nulo antes de agregarlo
                     if (nuevoProveedor.department != null)

@@ -22,11 +22,11 @@ namespace MyApiProject.Controllers
             // Query base
             var baseQuery = @"
         FROM 
-            [TC032841E].[dbo].[VentaD] VTA
+            VentaD VTA
         INNER JOIN 
-            [TC032841E].[dbo].[Venta] VTE ON VTE.ID = VTA.ID
+            Venta VTE ON VTE.ID = VTA.ID
         LEFT JOIN 
-            [TC032841E].[dbo].[ART] A ON A.ARTICULO = VTA.Articulo
+            ART A ON A.ARTICULO = VTA.Articulo
         WHERE 
             VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')";
 
@@ -36,6 +36,13 @@ namespace MyApiProject.Controllers
 
             foreach (var filter in filters)
             {
+                // Omitir los filtros "page" y "pageSize"
+                if (filter.Key.Equals("page", StringComparison.OrdinalIgnoreCase) ||
+                    filter.Key.Equals("pageSize", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 if (!string.IsNullOrWhiteSpace(filter.Value))
                 {
                     var columnName = filter.Key;
@@ -44,6 +51,7 @@ namespace MyApiProject.Controllers
                     parameters.Add(new SqlParameter(parameterName, $"%{filter.Value}%"));
                 }
             }
+
 
             var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";
 
@@ -75,7 +83,7 @@ namespace MyApiProject.Controllers
             ISNULL(NULLIF(VTA.Impuesto2, ''), 0) AS [IEPS%], 
             ISNULL(NULLIF(VTA.Impuesto3, ''), 0) AS [ISR%]
         {baseQuery} {whereQuery}
-        ORDER BY VTA.Codigo
+        ORDER BY VTA.Codigo DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
             try

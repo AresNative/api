@@ -21,13 +21,13 @@ namespace MyApiProject.Controllers
 
             var baseQuery = @"
                 FROM
-                    [TC032841E].[dbo].Art art
+                    Art art
                 RIGHT JOIN
-                    [TC032841E].[dbo].INVD inv ON art.ARTICULO = inv.Articulo
+                    INVD inv ON art.ARTICULO = inv.Articulo
                 WHERE
                     inv.ID IN (
                         SELECT ID 
-                        FROM [TC032841E].[dbo].Inv 
+                        FROM Inv 
                         WHERE 
                             Concepto IS NOT NULL
                             AND Mov = 'SALIDA DIVERSA'
@@ -64,7 +64,7 @@ namespace MyApiProject.Controllers
             var countQuery = new StringBuilder($"SELECT COUNT(1) {baseQuery}");
 
             var query = new StringBuilder($@"
-                USE TC032841E
+                USE [TC032841E];
                 SELECT
                     ROW_NUMBER() OVER (ORDER BY inv.Articulo) AS ID,
                     inv.Articulo,

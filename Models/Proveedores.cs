@@ -2,6 +2,7 @@ public class ProveedorDto
 {
     public string name { get; set; }
     public string email { get; set; }
+    public string telefono { get; set; }
     public string company { get; set; }
     public string type_prod { get; set; }
     public string department { get; set; }

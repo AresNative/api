@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using MyApiProject.Models;
-using System.Text;
 
 namespace MyApiProject.Controllers
 {
@@ -9,81 +8,72 @@ namespace MyApiProject.Controllers
     {
         public Reporteria(IConfiguration configuration) : base(configuration) { }
 
-        [HttpGet("api/v1/reporteria/compras")]
+
+        [HttpPost("api/v1/reporteria/compras")]
         public async Task<IActionResult> ObtenerCompras(
-            [FromQuery] Dictionary<string, string?> filters,
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
+            [FromBody] List<BusquedaParams> filtros,  // Recibir filtros como una lista
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            // Validación de paginación
+            // Validación de entrada
             if (page <= 0) page = 1;
             if (pageSize <= 0 || pageSize > 100) pageSize = 10;
 
             int offset = (page - 1) * pageSize;
 
-            // Construcción del query base
+            // Query base
             var baseQuery = @"
                 FROM 
-                    CB cb
+                    [TC032841E].dbo.[CB] cb
                 JOIN 
-                    CompraD cd ON cb.Cuenta = cd.Articulo 
+                    [TC032841E].dbo.[CompraD] cd ON cb.Cuenta = cd.Articulo 
                 LEFT JOIN 
-                    Compra c ON cd.ID = c.ID
+                    [TC032841E].dbo.[Compra] c ON cd.ID = c.ID
                 LEFT JOIN 
-                    Prov p ON c.Proveedor = p.Proveedor
+                    [TC032841E].dbo.[Prov] p ON c.Proveedor = p.Proveedor
                 LEFT JOIN
-                    ArtUnidad U ON cb.Cuenta = U.Articulo
+                    [TC032841E].dbo.[ArtUnidad] U ON cb.Cuenta = U.Articulo
                 LEFT JOIN
-                    Art A ON cb.Cuenta = A.Articulo";
+                    [TC032841E].dbo.[Art] A ON cb.Cuenta = A.Articulo
+                WHERE 
+					c.Estatus IN ('CONCLUIDO','PROCESAR')";
 
-            // Construcción de la cláusula WHERE de manera dinámica con filtros y fechas
+            // Construcción de cláusulas WHERE dinámicas
             var whereClauses = new List<string>();
             var parameters = new List<SqlParameter>();
 
-            // Procesar los filtros dinámicos
-            foreach (var filter in filters)
+            foreach (var filter in filtros)
             {
-                // Omitir los filtros "page" y "pageSize"
-                if (filter.Key.Equals("page", StringComparison.OrdinalIgnoreCase) ||
-                    filter.Key.Equals("pageSize", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 if (!string.IsNullOrWhiteSpace(filter.Value))
                 {
                     var columnName = filter.Key;
-                    var parameterName = $"@{filter.Key.Replace(".", "_")}";
-                    whereClauses.Add($"{columnName} LIKE {parameterName}");
+                    var parameterName = $"@{filter.Key.Replace(".", "_")}";  // Reemplazar puntos por guiones bajos
+
+                    string operatorClause = filter.Operator?.ToLower() switch
+                    {
+                        "like" => "LIKE",
+                        "=" => "=",
+                        ">=" => ">=",
+                        "<=" => "<=",
+                        ">" => ">",
+                        "<" => "<",
+                        _ => "LIKE"  // Default: LIKE
+                    };
+
+                    whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
                     parameters.Add(new SqlParameter(parameterName, $"%{filter.Value}%"));
                 }
             }
 
+            var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";
 
-            // Agregar filtros de rango de fechas
-            if (startDate.HasValue)
-            {
-                whereClauses.Add("c.FechaEmision >= @StartDate");
-                parameters.Add(new SqlParameter("@StartDate", startDate.Value));
-            }
-            if (endDate.HasValue)
-            {
-                whereClauses.Add("c.FechaEmision <= @EndDate");
-                parameters.Add(new SqlParameter("@EndDate", endDate.Value));
-            }
+            // Query para conteo total
+            var countQuery = $"SELECT COUNT(1) {baseQuery} {whereQuery}";
 
-            // Si hay cláusulas WHERE, agregarlas al query base
-            var whereQuery = whereClauses.Any() ? $" WHERE {string.Join(" AND ", whereClauses)}" : "";
-
-            // Construcción de la consulta para el total de registros
-            var countQueryBuilder = new StringBuilder($"SELECT COUNT(1) {baseQuery} {whereQuery}");
-
-            // Construcción de la consulta con paginación
-            var queryBuilder = new StringBuilder($@"
-                USE [TC032841E]
-                SELECT
+            // Query con paginación
+            var paginatedQuery = $@"
+                USE [TC032841E];
+                SELECT 
                     ROW_NUMBER() OVER (ORDER BY cb.Codigo) AS ID,
                     cb.Codigo, 
                     cd.Articulo,
@@ -107,44 +97,38 @@ namespace MyApiProject.Controllers
                     NULLIF(A.Impuesto2, '') AS [IEPS%], 
                     NULLIF(A.Impuesto3, '') AS [ISR%]
                 {baseQuery} {whereQuery}
-                ORDER BY (SELECT NULL)
-                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
+                ORDER BY cb.Codigo ASC
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
             try
             {
-                int totalRecords;
-
-                // Abre la conexión de forma segura
                 await using var connection = await OpenConnectionAsync();
 
-                // Crear una copia de los parámetros para el comando de conteo
-                var countParameters = parameters.Select(p => new SqlParameter(p.ParameterName, p.Value)).ToArray();
+                // Crear los parámetros de manera independiente para countCommand
+                var countCommandParameters = parameters
+                    .Select(p => new SqlParameter(p.ParameterName, p.Value))  // Nueva instancia para count
+                    .ToList();
 
-                // Ejecutar la consulta para obtener el total de registros
-                await using (var countCommand = new SqlCommand(countQueryBuilder.ToString(), connection))
+                await using var countCommand = new SqlCommand(countQuery, connection);
+                countCommand.Parameters.AddRange(countCommandParameters.ToArray());
+                var totalRecords = (int)await countCommand.ExecuteScalarAsync();
+
+                // Crear los parámetros de manera independiente para paginatedQuery
+                var paginatedCommandParameters = parameters
+                    .Select(p => new SqlParameter(p.ParameterName, p.Value))  // Nueva instancia para paginación
+                    .ToList();
+
+                paginatedCommandParameters.AddRange(new[]
                 {
-                    countCommand.Parameters.AddRange(countParameters);
-                    totalRecords = (int)await countCommand.ExecuteScalarAsync();
-                }
+                    new SqlParameter("@Offset", offset),
+                    new SqlParameter("@PageSize", pageSize)
+                });
 
-                // Crear una copia de los parámetros para la consulta con paginación
-                var paginatedParameters = parameters.Select(p => new SqlParameter(p.ParameterName, p.Value)).ToList();
-                paginatedParameters.Add(new SqlParameter("@Offset", offset));
-                paginatedParameters.Add(new SqlParameter("@PageSize", pageSize));
-
-                // Ejecutar la consulta con paginación
-                await using var command = new SqlCommand(queryBuilder.ToString(), connection)
-                {
-                    CommandTimeout = 30
-                };
-
-                // Asigna los parámetros al comando
-                command.Parameters.AddRange(paginatedParameters.ToArray());
-
-                // Ejecuta la consulta
-                await using var reader = await command.ExecuteReaderAsync();
+                await using var command = new SqlCommand(paginatedQuery, connection);
+                command.Parameters.AddRange(paginatedCommandParameters.ToArray());
                 var results = new List<Dictionary<string, object>>();
 
+                await using var reader = await command.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
                     var row = new Dictionary<string, object>();
@@ -155,7 +139,6 @@ namespace MyApiProject.Controllers
                     results.Add(row);
                 }
 
-                // Crear la respuesta en el formato solicitado
                 var response = new
                 {
                     TotalRecords = totalRecords,
@@ -168,7 +151,7 @@ namespace MyApiProject.Controllers
             }
             catch (Exception ex)
             {
-                return HandleException(ex, queryBuilder.ToString());
+                return HandleException(ex, paginatedQuery);
             }
         }
     }

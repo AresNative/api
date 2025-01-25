@@ -8,32 +8,31 @@ namespace MyApiProject.Controllers
     {
         [HttpPost("api/v1/reporteria/mermas")]
         public async Task<IActionResult> ObtenerMermas(
-            [FromBody] List<BusquedaParams> filtros, // Recibir filtros como una lista
+            [FromBody] List<BusquedaParams> filtros,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            // Validación de entrada
             if (page <= 0) page = 1;
             if (pageSize <= 0 || pageSize > 100) pageSize = 10;
 
             int offset = (page - 1) * pageSize;
 
-            // Query base
             var baseQuery = @"
-                FROM
-                    [TC032841E].dbo.INVD inv
-                LEFT JOIN
-                    [TC032841E].dbo.Art art ON art.ARTICULO = inv.Articulo
-                LEFT JOIN
-                    [TC032841E].dbo.Inv inv_det ON inv_det.ID = inv.ID";
+                FROM [TC032841E].dbo.INVD inv
+                LEFT JOIN [TC032841E].dbo.Art art ON art.Articulo = inv.Articulo
+                WHERE inv.ID IN (
+                    SELECT ID 
+                    FROM [TC032841E].dbo.Inv 
+                    WHERE 
+                        Concepto = 'SALIDA POR MERMAS'
+                        AND Estatus = 'CONCLUIDO')";
 
-            // Construcción de cláusulas WHERE dinámicas
             var whereClauses = new List<string>();
             var parameters = new List<SqlParameter>();
 
             foreach (var filter in filtros)
             {
-                if (!string.IsNullOrWhiteSpace(filter.Value) && !string.IsNullOrWhiteSpace(filter.Key))
+                if (!string.IsNullOrWhiteSpace(filter.Value))
                 {
                     var columnName = filter.Key;
                     var parameterName = $"@{filter.Key.Replace(".", "_")}";
@@ -50,71 +49,120 @@ namespace MyApiProject.Controllers
                     };
 
                     whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
-                    var parameterValue = operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value;
-                    parameters.Add(new SqlParameter(parameterName, parameterValue));
+                    parameters.Add(new SqlParameter(parameterName,
+                        operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value));
                 }
             }
 
-            var whereQuery = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+            var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";
 
-            // Query para conteo total
-            var countQuery = $"SELECT COUNT(1) {baseQuery} {whereQuery}";
+            var countQuery = $@"
+                USE [TC032841E];
 
-            // Query con paginación
-            var paginatedQuery = $@"
-                    USE [TC032841E];
+                SELECT COUNT(*) AS TotalRegistros
+                FROM (
                     SELECT 
-                        ROW_NUMBER() OVER (ORDER BY inv.Articulo) AS ID,
-                        inv.Articulo,
+                        art.Articulo,
+                        art.Descripcion1,
+                        art.Categoria,
+                        art.Grupo,
+                        art.Linea,
+                        art.Familia,
+                        art.Estatus,
+                        art.Concepto,
+                        inv.Unidad,
+                        inv.Sucursal
+                    FROM
+                        dbo.INVD inv
+                    LEFT JOIN
+                        dbo.Art art ON art.Articulo = inv.Articulo
+                    LEFT JOIN
+                        dbo.INVD inv_det ON inv_det.ID = inv.ID
+                    WHERE
+                        inv.ID IN (
+                            SELECT ID 
+                            FROM dbo.Inv 
+                            WHERE 
+                                Concepto IS NOT NULL
+                                AND Concepto = 'SALIDA POR MERMAS'
+                                AND Estatus = 'CONCLUIDO'
+                        )
+                        {whereQuery} -- Aquí se agregan los filtros dinámicos
+                    GROUP BY
+                        art.Articulo,
                         art.Descripcion1,
                         art.Categoria,
                         art.Grupo,
                         art.Linea,
                         art.Familia,
                         inv.Unidad,
-                        SUM(inv.Cantidad) AS TotalCantidad,
-                        SUM(inv.Costo * inv.Cantidad) AS TotalImporte
-                        {baseQuery} {whereQuery}
-                    GROUP BY
-                        inv.Articulo, 
-                        art.Descripcion1,
-                        art.Categoria,
-                        art.Grupo,
-                        art.Linea,
-                        art.Familia,
-                        inv.Unidad
-                    ORDER BY inv.Articulo
-                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
+                        inv.Sucursal,
+                        art.Concepto,
+                        art.Estatus
+                ) AS Contador;";
+
+
+            var totalQuery = $@"
+                SELECT ISNULL(SUM(inv.Costo * inv.Cantidad), 0) AS TotalImporteGeneral
+                {baseQuery} {whereQuery}";
+
+            var paginatedQuery = $@"
+                SELECT 
+                    ROW_NUMBER() OVER (ORDER BY art.Articulo DESC) AS ID,
+                    art.Articulo,
+                    art.Descripcion1,
+                    art.Categoria,
+                    art.Grupo,
+                    art.Linea,
+                    art.Familia,
+                    art.Estatus,
+                    art.Concepto,
+                    inv.Unidad,
+                    SUM(inv.Cantidad) AS TotalCantidad,
+                    SUM(inv.Costo * inv.Cantidad) AS TotalImporte,
+                    inv.Sucursal
+                {baseQuery} {whereQuery}
+                GROUP BY
+                    art.Articulo,
+                    art.Descripcion1,
+                    art.Categoria,
+                    art.Grupo,
+                    art.Linea,
+                    art.Familia,
+                    inv.Unidad,
+                    inv.Sucursal,
+                    art.Concepto,
+                    art.Estatus
+                ORDER BY
+                    art.Articulo DESC
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
             try
             {
                 await using var connection = await OpenConnectionAsync();
 
-                // Crear los parámetros de manera independiente para countCommand
-                var countCommandParameters = parameters
-                    .Select(p => new SqlParameter(p.ParameterName, p.Value)) // Nueva instancia para count
-                    .ToList();
-
-                await using var countCommand = new SqlCommand(countQuery, connection);
-                countCommand.Parameters.AddRange(countCommandParameters.ToArray());
+                // Total records
+                var countCommand = new SqlCommand(countQuery, connection);
+                countCommand.Parameters.AddRange(parameters.ToArray());
                 var totalRecords = (int)await countCommand.ExecuteScalarAsync();
 
-                // Crear los parámetros de manera independiente para paginatedQuery
-                var paginatedCommandParameters = parameters
-                    .Select(p => new SqlParameter(p.ParameterName, p.Value)) // Nueva instancia para paginación
-                    .ToList();
+                // Total general sum
+                var totalCommand = new SqlCommand(totalQuery, connection);
+                totalCommand.Parameters.AddRange(parameters.ToArray());
+                var totalGeneral = Convert.ToDecimal(await totalCommand.ExecuteScalarAsync());
 
-                paginatedCommandParameters.AddRange(new[]
+                // Paginated data
+                parameters.AddRange(new[]
                 {
                     new SqlParameter("@Offset", offset),
                     new SqlParameter("@PageSize", pageSize)
                 });
 
-                await using var command = new SqlCommand(paginatedQuery, connection);
-                command.Parameters.AddRange(paginatedCommandParameters.ToArray());
-                var results = new List<Dictionary<string, object>>();
+                var command = new SqlCommand(paginatedQuery, connection);
+                command.Parameters.AddRange(parameters.ToArray());
 
-                await using var reader = await command.ExecuteReaderAsync();
+                var results = new List<Dictionary<string, object>>();
+                var reader = await command.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
                     var row = new Dictionary<string, object>();
@@ -125,15 +173,15 @@ namespace MyApiProject.Controllers
                     results.Add(row);
                 }
 
-                var response = new
+                return Ok(new
                 {
                     TotalRecords = totalRecords,
+                    TotalGeneral = totalGeneral,
                     Page = page,
+                    TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
                     PageSize = pageSize,
                     Data = results
-                };
-
-                return Ok(response);
+                });
             }
             catch (Exception ex)
             {

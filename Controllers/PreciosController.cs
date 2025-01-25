@@ -16,42 +16,52 @@ namespace MyApiProject.Controllers
 
         // GET: api/precios
         [HttpGet]
-        public async Task<IActionResult> GetPrecios([FromQuery] string? filtro)
+        public async Task<IActionResult> GetPrecios([FromQuery] string? filtro, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (string.IsNullOrEmpty(filtro))
             {
                 return BadRequest(new ErrorResponse { Message = "Debe proporcionar el parámetro de búsqueda." });
             }
 
+            if (page < 1 || pageSize < 1)
+            {
+                return BadRequest(new ErrorResponse { Message = "Los parámetros de paginación deben ser mayores a 0." });
+            }
+
             var precios = new List<PrecioDto>();
             var ofertas = new List<OfertaDto>();
             string articulo = filtro; // Por defecto, asumimos que el filtro es el artículo
 
-            // Consultas SQL
+            // Consultas SQL con paginación
             string queryPrecios = @"
-                USE TC032841E;
-                SELECT TOP (1)
-                    CB.Codigo, 
-                    CB.Cuenta, 
-                    Art.Descripcion1, 
-                    ListaPreciosDUnidad.Unidad, 
-                    ListaPreciosDUnidad.Precio,
-                    ArtUnidad.Factor,
-                    Art.UltimoCambio
-                FROM CB
-                INNER JOIN Art ON CB.Cuenta = Art.Articulo 
-                INNER JOIN ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
-                INNER JOIN ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
-                WHERE 
-                    ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
-                    AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
-                    AND CB.Unidad = ArtUnidad.Unidad 
-                    AND (CB.Codigo = @Filtro OR Art.Articulo = @Filtro OR Art.Descripcion1 LIKE '%' + @Filtro + '%')
-                ORDER BY Art.UltimoCambio DESC;
+                USE SVRPANADERIA;
+                WITH Paginado AS (
+                    SELECT 
+                        CB.Codigo, 
+                        CB.Cuenta, 
+                        Art.Descripcion1, 
+                        ListaPreciosDUnidad.Unidad, 
+                        ListaPreciosDUnidad.Precio,
+                        ArtUnidad.Factor,
+                        Art.UltimoCambio,
+                        ROW_NUMBER() OVER (ORDER BY Art.UltimoCambio DESC) AS RowNum
+                    FROM CB
+                    INNER JOIN Art ON CB.Cuenta = Art.Articulo 
+                    INNER JOIN ListaPreciosDUnidad ON CB.Cuenta = ListaPreciosDUnidad.Articulo 
+                    INNER JOIN ArtUnidad ON CB.Cuenta = ArtUnidad.Articulo 
+                    WHERE 
+                        ListaPreciosDUnidad.Lista = '(PRECIO 3)' 
+                        AND CB.Unidad = ListaPreciosDUnidad.UNIDAD 
+                        AND CB.Unidad = ArtUnidad.Unidad 
+                        AND (CB.Codigo = @Filtro OR Art.Articulo = @Filtro OR Art.Descripcion1 LIKE '%' + @Filtro + '%')
+                )
+                SELECT * 
+                FROM Paginado
+                WHERE RowNum BETWEEN @StartRow AND @EndRow;
             ";
 
             string queryOfertas = @"
-                USE TC032841E;
+                USE SVRPANADERIA;
                 SELECT 
                     OfertaD.Articulo,
                     OfertaD.Precio,
@@ -66,15 +76,19 @@ namespace MyApiProject.Controllers
                 --AND Oferta.FechaA > GETDATE();
             ";
 
-
             try
             {
+                int startRow = ((page - 1) * pageSize) + 1;
+                int endRow = page * pageSize;
+
                 await using var connection = await OpenConnection();
 
-                // Ejecutar consulta de precios
+                // Ejecutar consulta de precios con paginación
                 await using (var commandPrecios = new SqlCommand(queryPrecios, connection))
                 {
                     commandPrecios.Parameters.AddWithValue("@Filtro", filtro);
+                    commandPrecios.Parameters.AddWithValue("@StartRow", startRow);
+                    commandPrecios.Parameters.AddWithValue("@EndRow", endRow);
 
                     await using var readerPrecios = await commandPrecios.ExecuteReaderAsync();
                     while (await readerPrecios.ReadAsync())

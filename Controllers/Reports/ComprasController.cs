@@ -144,6 +144,7 @@ namespace MyApiProject.Controllers
                     TotalRecords = totalRecords,
                     Page = page,
                     PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
                     Data = results
                 };
 

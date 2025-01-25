@@ -8,28 +8,22 @@ namespace MyApiProject.Controllers
     {
         [HttpPost("api/v1/reporteria/ventas")]
         public async Task<IActionResult> ObtenerVentas(
-                            [FromBody] List<BusquedaParams> filtros,  // Recibir filtros como una lista
+                            [FromBody] List<BusquedaParams> filtros,
                             [FromQuery] int page = 1,
                             [FromQuery] int pageSize = 10)
         {
-            // Validación de entrada
+            if (filtros == null || !filtros.Any())
+                return BadRequest("Debe proporcionar al menos un filtro.");
+
             if (page <= 0) page = 1;
             if (pageSize <= 0 || pageSize > 100) pageSize = 10;
 
             int offset = (page - 1) * pageSize;
 
-            // Query base
             var baseQuery = @"
-        FROM 
-            [TC032841E].dbo.VentaD VTA
-        INNER JOIN 
-            [TC032841E].dbo.Venta VTE ON VTE.ID = VTA.ID
-        LEFT JOIN 
-            [TC032841E].dbo.ART A ON A.ARTICULO = VTA.Articulo
-        WHERE 
-            VTE.Mov = 'NOTA' AND VTE.Estatus IN ('CONCLUIDO','PROCESAR')";
+                FROM 
+                    [Temp_VentasReport]";
 
-            // Construcción de cláusulas WHERE dinámicas
             var whereClauses = new List<string>();
             var parameters = new List<SqlParameter>();
 
@@ -38,7 +32,7 @@ namespace MyApiProject.Controllers
                 if (!string.IsNullOrWhiteSpace(filter.Value))
                 {
                     var columnName = filter.Key;
-                    var parameterName = $"@{filter.Key.Replace(".", "_")}";  // Reemplazar puntos por guiones bajos
+                    var parameterName = $"@{filter.Key.Replace(".", "_")}";
 
                     string operatorClause = filter.Operator?.ToLower() switch
                     {
@@ -48,73 +42,71 @@ namespace MyApiProject.Controllers
                         "<=" => "<=",
                         ">" => ">",
                         "<" => "<",
-                        _ => "LIKE"  // Default: LIKE
+                        _ => "LIKE"
                     };
 
                     whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
-                    parameters.Add(new SqlParameter(parameterName, $"%{filter.Value}%"));
+                    parameters.Add(new SqlParameter(parameterName, operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value));
                 }
             }
 
-            var whereQuery = whereClauses.Any() ? $" AND {string.Join(" AND ", whereClauses)}" : "";
+            var whereQuery = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
-            // Query para conteo total
             var countQuery = $"SELECT COUNT(1) {baseQuery} {whereQuery}";
 
-            // Query con paginación
             var paginatedQuery = $@"
-                    USE [TC032841E];
-                    SELECT 
-                        ROW_NUMBER() OVER (ORDER BY VTA.Codigo) AS ID,
-                        VTA.Codigo,
-                        VTA.Articulo,
-                        A.Descripcion1 AS Nombre,
-                        VTA.Precio,
-                        VTA.Costo,
-                        VTA.Cantidad,
-                        VTE.Importe,
-                        VTE.Impuestos,
-                        VTE.CostoTotal,
-                        VTE.PrecioTotal,
-                        VTA.Unidad,
-                        VTA.Sucursal,
-                        VTE.FechaEmision,
-                        ISNULL(NULLIF(VTA.TipoImpuesto1, ''), 0) AS [IVA], 
-                        ISNULL(NULLIF(VTA.TipoImpuesto2, ''), 0) AS [IEPS], 
-                        ISNULL(NULLIF(VTA.TipoImpuesto3, ''), 0) AS [ISR],
-                        ISNULL(NULLIF(VTA.Impuesto1, ''), 0) AS [IVA%], 
-                        ISNULL(NULLIF(VTA.Impuesto2, ''), 0) AS [IEPS%], 
-                        ISNULL(NULLIF(VTA.Impuesto3, ''), 0) AS [ISR%]
-                    {baseQuery} {whereQuery}
-                    ORDER BY VTA.Codigo ASC
-                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
+                SELECT 
+                    [ID]
+                    ,[Codigo]
+                    ,[Articulo]
+                    ,[Nombre]
+                    ,[Precio]
+                    ,[Costo]
+                    ,[Cantidad]
+                    ,[Importe]
+                    ,[Impuestos]
+                    ,[CostoTotal]
+                    ,[PrecioTotal]
+                    ,[Unidad]
+                    ,[Sucursal]
+                    ,[FechaEmision]
+                    ,[IVA]
+                    ,[IEPS]
+                    ,[ISR]
+                    ,[IVA%]
+                    ,[IEPS%]
+                    ,[ISR%]
+                {baseQuery} {whereQuery}
+                ORDER BY ID ASC
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
             try
             {
                 await using var connection = await OpenConnectionAsync();
 
-                // Crear los parámetros de manera independiente para countCommand
+                // Crear nuevos parámetros para la consulta de conteo
                 var countCommandParameters = parameters
-                    .Select(p => new SqlParameter(p.ParameterName, p.Value))  // Nueva instancia para count
+                    .Select(p => new SqlParameter(p.ParameterName, p.Value))
                     .ToList();
 
                 await using var countCommand = new SqlCommand(countQuery, connection);
                 countCommand.Parameters.AddRange(countCommandParameters.ToArray());
                 var totalRecords = (int)await countCommand.ExecuteScalarAsync();
 
-                // Crear los parámetros de manera independiente para paginatedQuery
-                var paginatedCommandParameters = parameters
-                    .Select(p => new SqlParameter(p.ParameterName, p.Value))  // Nueva instancia para paginación
+                // Crear nuevos parámetros para la consulta paginada
+                var paginatedParameters = parameters
+                    .Select(p => new SqlParameter(p.ParameterName, p.Value))
                     .ToList();
 
-                paginatedCommandParameters.AddRange(new[]
+                paginatedParameters.AddRange(new[]
                 {
                     new SqlParameter("@Offset", offset),
                     new SqlParameter("@PageSize", pageSize)
                 });
 
                 await using var command = new SqlCommand(paginatedQuery, connection);
-                command.Parameters.AddRange(paginatedCommandParameters.ToArray());
+                command.Parameters.AddRange(paginatedParameters.ToArray());
+
                 var results = new List<Dictionary<string, object>>();
 
                 await using var reader = await command.ExecuteReaderAsync();
@@ -130,9 +122,9 @@ namespace MyApiProject.Controllers
 
                 var response = new
                 {
-                    TotalRecords = totalRecords,
                     Page = page,
                     PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
                     Data = results
                 };
 

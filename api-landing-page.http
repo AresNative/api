@@ -1,0 +1,11 @@
+@api_landing_page_HostAddress = http://localhost:5077
+
+GET {{api_landing_page_HostAddress}}/todos/
+Accept: application/json
+
+###
+
+GET {{api_landing_page_HostAddress}}/todos/1
+Accept: application/json
+
+###

@@ -1,5 +1,4 @@
-
-public class Postulacion
+public class PostulacionData
 {
     public string nombre { get; set; }
     public string apellido_paterno { get; set; }

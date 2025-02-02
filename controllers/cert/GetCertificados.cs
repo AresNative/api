@@ -4,17 +4,17 @@ using MyApiProject.Models;
 
 namespace MyApiProject.Controllers
 {
-    public partial class Combos : BaseController
+    public partial class Certificados : BaseController
     {
-        public Combos(IConfiguration configuration) : base(configuration) { }
-        public class CombosRequest
+        public Certificados(IConfiguration configuration) : base(configuration) { }
+        public class CertificadosRequest
         {
             public List<BusquedaParams> Filtros { get; set; } = new();
         }
 
-        [HttpPost("api/v2/select/combos")]
-        public async Task<IActionResult> ObtenerCombosRequest(
-            [FromBody] CombosRequest request,
+        [HttpPost("api/v2/select/certificados")]
+        public async Task<IActionResult> ObtenerCertificadosRequest(
+            [FromBody] CertificadosRequest request,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {

@@ -3,17 +3,17 @@ using Microsoft.Data.SqlClient;
 
 namespace MyApiProject.Controllers
 {
-    public partial class Combos : BaseController
+    public partial class Vacantes : BaseController
     {
-        public class CombosPost
+        public class VacantesPost
         {
-            public List<CombosParams> Filtros { get; set; } = new();
+            public List<VacantesParams> Articulo { get; set; } = new();
         }
 
-        [HttpPost("api/v2/insert/combos")]
-        public async Task<IActionResult> InsertarCombosRequest([FromBody] CombosPost request)
+        [HttpPost("api/v2/insert/vacantes")]
+        public async Task<IActionResult> InsertarVacantesRequest([FromBody] VacantesPost request)
         {
-            if (request?.Filtros == null || !request.Filtros.Any())
+            if (request?.Articulo == null || !request.Articulo.Any())
                 return BadRequest("No hay datos válidos para insertar.");
 
             try
@@ -22,7 +22,7 @@ namespace MyApiProject.Controllers
 
                 var insertedIds = new List<int>();
 
-                foreach (var filtro in request.Filtros)
+                foreach (var filtro in request.Articulo)
                 {
                     var properties = filtro.GetType().GetProperties()
                         .Where(p => p.GetValue(filtro) != null)
@@ -32,7 +32,7 @@ namespace MyApiProject.Controllers
                     var parameterNames = string.Join(", ", properties.Select(p => $"@{p.Name}"));
 
                     var query = $@"
-                        INSERT INTO [LOCAL_TC032391E].[dbo].[Website_promotion] ({columnNames})
+                        INSERT INTO [LOCAL_TC032391E].[dbo].[Website_article] ({columnNames})
                         OUTPUT INSERTED.ID
                         VALUES ({parameterNames});
                     ";
@@ -47,7 +47,7 @@ namespace MyApiProject.Controllers
                     insertedIds.Add(Convert.ToInt32(insertedId));
                 }
 
-                return Ok(new { Message = "Combos insertadas correctamente.", Ids = insertedIds });
+                return Ok(new { Message = "Vacantes insertadas correctamente.", Ids = insertedIds });
             }
             catch (Exception ex)
             {

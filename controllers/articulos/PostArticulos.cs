@@ -7,13 +7,13 @@ namespace MyApiProject.Controllers
     {
         public class ArticulosPost
         {
-            public List<ArticulosParams> Filtros { get; set; } = new();
+            public List<ArticulosParams> Articulo { get; set; } = new();
         }
 
         [HttpPost("api/v2/insert/articulos")]
         public async Task<IActionResult> InsertarArticulosRequest([FromBody] ArticulosPost request)
         {
-            if (request?.Filtros == null || !request.Filtros.Any())
+            if (request?.Articulo == null || !request.Articulo.Any())
                 return BadRequest("No hay datos válidos para insertar.");
 
             try
@@ -22,7 +22,7 @@ namespace MyApiProject.Controllers
 
                 var insertedIds = new List<int>();
 
-                foreach (var filtro in request.Filtros)
+                foreach (var filtro in request.Articulo)
                 {
                     var properties = filtro.GetType().GetProperties()
                         .Where(p => p.GetValue(filtro) != null)

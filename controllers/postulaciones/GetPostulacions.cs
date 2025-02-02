@@ -24,7 +24,7 @@ namespace MyApiProject.Controllers
             int offset = (page - 1) * pageSize;
 
             var baseQuery = @"
-            FROM [LOCAL_TC032391E].[dbo].[Website_solicitud_empleo]";
+            FROM [LOCAL_TC032391E].[dbo].[Postulaciones]";
 
             var whereClauses = new List<string>();
             var sumaClauses = new List<string>();
@@ -64,14 +64,48 @@ namespace MyApiProject.Controllers
             var paginatedQuery = $@"
                 SELECT
                     [id]
-                    ,[name]
-                    ,[email]
-                    ,[years_experience]
-                    ,[id_sucursal]
-                    ,[cv]
-                    ,[description]
+                    ,[nombre]
+                    ,[apellido_paterno]
+                    ,[apellido_materno]
+                    ,[edad]
+                    ,[fecha_nacimiento]
+                    ,[correo_electronico]
+                    ,[numero_telefono]
+                    ,[direccion_actual]
+                    ,[fecha_radica_ciudad]
+                    ,[medio_transporte]
+                    ,[tiempo_traslado]
+                    ,[estado_civil]
+                    ,[tiempo_casado]
+                    ,[bienes_mancomunados]
+                    ,[tienes_hijos]
+                    ,[planeas_mas_hijos]
+                    ,[disponibilidad_horario]
+                    ,[ultimo_grado_estudios]
+                    ,[tienes_certificado]
+                    ,[estudias_actualmente]
+                    ,[dias_horario_estudio]
+                    ,[ultimo_lugar_trabajo]
+                    ,[puesto_ultimo_trabajo]
+                    ,[tiempo_trabajo]
+                    ,[salario_semanal]
+                    ,[horario_trabajo]
+                    ,[dia_descanso]
+                    ,[motivo_salida]
+                    ,[penultimo_lugar_trabajo]
+                    ,[puesto_penultimo_trabajo]
+                    ,[tiempo_penultimo_trabajo]
+                    ,[salario_semanal_penultimo]
+                    ,[horario_penultimo_trabajo]
+                    ,[dia_descanso_penultimo]
+                    ,[motivo_salida_penultimo]
+                    ,[como_se_entero_vacante]
+                    ,[conoce_trabajador]
+                    ,[a_quien_conoce]
+                    ,[tipo_relacion]
+                    ,[sucursal]
+                    ,[vacante]
                     ,[file]
-                    ,[id_puesto]
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -111,7 +145,41 @@ namespace MyApiProject.Controllers
                     var row = new Dictionary<string, object>();
                     for (int i = 0; i < reader.FieldCount; i++)
                     {
-                        row[reader.GetName(i)] = reader.GetValue(i);
+                        var columnName = reader.GetName(i);
+                        var columnValue = reader.GetValue(i);
+
+                        if (columnName == "file" && columnValue != DBNull.Value)
+                        {
+                            var rutaCompleta = columnValue.ToString();
+
+                            // Verifica si el archivo existe
+                            if (System.IO.File.Exists(rutaCompleta))
+                            {
+                                var nombreArchivo = Path.GetFileName(rutaCompleta);
+                                var contenidoArchivo = System.IO.File.ReadAllBytes(rutaCompleta);
+                                var tipoMime = GetMimeType(nombreArchivo);
+
+                                row[columnName] = new
+                                {
+                                    FileName = nombreArchivo,
+                                    ContentType = tipoMime,
+                                    Content = contenidoArchivo
+                                };
+                            }
+                            else
+                            {
+                                // Si el archivo no existe, devuelve un mensaje de error o un valor predeterminado
+                                row[columnName] = new
+                                {
+                                    Error = "Archivo no encontrado",
+                                    FilePath = rutaCompleta
+                                };
+                            }
+                        }
+                        else
+                        {
+                            row[columnName] = columnValue;
+                        }
                     }
                     results.Add(row);
                 }

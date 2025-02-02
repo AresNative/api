@@ -13,6 +13,27 @@ namespace MyApiProject.Controllers
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
+        public string GetMimeType(string fileName)
+        {
+            // Determina el tipo MIME basado en la extensión del archivo
+            return fileName.ToLower() switch
+            {
+                string f when f.EndsWith(".jpg") || f.EndsWith(".jpeg") => "image/jpeg",
+                string f when f.EndsWith(".png") => "image/png",
+                string f when f.EndsWith(".gif") => "image/gif",
+                string f when f.EndsWith(".bmp") => "image/bmp",
+                string f when f.EndsWith(".webp") => "image/webp",
+                string f when f.EndsWith(".pdf") => "application/pdf",
+                string f when f.EndsWith(".txt") => "text/plain",
+                string f when f.EndsWith(".html") => "text/html",
+                string f when f.EndsWith(".css") => "text/css",
+                string f when f.EndsWith(".json") => "application/json",
+                string f when f.EndsWith(".xml") => "application/xml",
+                string f when f.EndsWith(".zip") => "application/zip",
+                string f when f.EndsWith(".mp4") => "video/mp4",
+                _ => "application/octet-stream" // Tipo MIME genérico
+            };
+        }
         // Método protegido para abrir una conexión de forma asíncrona y manejar su ciclo de vida
         protected async Task<SqlConnection> OpenConnectionAsync()
         {

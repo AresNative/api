@@ -4,17 +4,17 @@ using MyApiProject.Models;
 
 namespace MyApiProject.Controllers
 {
-    public partial class Combos : BaseController
+    public partial class Valoracion : BaseController
     {
-        public Combos(IConfiguration configuration) : base(configuration) { }
-        public class CombosRequest
+        public Valoracion(IConfiguration configuration) : base(configuration) { }
+        public class ValoracionRequest
         {
             public List<BusquedaParams> Filtros { get; set; } = new();
         }
 
-        [HttpPost("api/v2/select/combos")]
-        public async Task<IActionResult> ObtenerCombosRequest(
-            [FromBody] CombosRequest request,
+        [HttpPost("api/v2/select/valoracion")]
+        public async Task<IActionResult> ObtenerValoracionRequest(
+            [FromBody] ValoracionRequest request,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
@@ -24,7 +24,7 @@ namespace MyApiProject.Controllers
             int offset = (page - 1) * pageSize;
 
             var baseQuery = @"
-            FROM [LOCAL_TC032391E].[dbo].[Website_article]";
+            FROM [LOCAL_TC032391E].[dbo].[Website_Valoracion]";
 
             var whereClauses = new List<string>();
             var sumaClauses = new List<string>();
@@ -64,11 +64,8 @@ namespace MyApiProject.Controllers
             var paginatedQuery = $@"
                 SELECT
                     [id]
-                    ,[price]
-                    ,[unit]
-                    ,[barcode]
-                    ,[id_sucursal]
-                    ,[id_user]
+                    ,[comment]
+                    ,[valor]
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";

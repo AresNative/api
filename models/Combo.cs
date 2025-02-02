@@ -1,4 +1,3 @@
-using Microsoft.OpenApi.Any;
 public class UploadCombos
 {
     public IFormFile File { get; set; }

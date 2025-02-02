@@ -7,13 +7,13 @@ namespace MyApiProject.Controllers
     {
         public class PromocionesPost
         {
-            public List<PromocionesParams> Filtros { get; set; } = new();
+            public List<PromocionesParams> Promociones { get; set; } = new();
         }
 
         [HttpPost("api/v2/insert/promociones")]
         public async Task<IActionResult> InsertarPromocionesRequest([FromBody] PromocionesPost request)
         {
-            if (request?.Filtros == null || !request.Filtros.Any())
+            if (request?.Promociones == null || !request.Promociones.Any())
                 return BadRequest("No hay datos válidos para insertar.");
 
             try
@@ -22,7 +22,7 @@ namespace MyApiProject.Controllers
 
                 var insertedIds = new List<int>();
 
-                foreach (var filtro in request.Filtros)
+                foreach (var filtro in request.Promociones)
                 {
                     var properties = filtro.GetType().GetProperties()
                         .Where(p => p.GetValue(filtro) != null)

@@ -1,4 +1,4 @@
-public class ProveedorDto
+public class ProveedoresParams
 {
     public string name { get; set; }
     public string email { get; set; }

@@ -3,17 +3,17 @@ using Microsoft.Data.SqlClient;
 
 namespace MyApiProject.Controllers
 {
-    public partial class Vacantes : BaseController
+    public partial class Proveedores : BaseController
     {
-        public class VacantesPost
+        public class ProveedoresPost
         {
-            public List<VacantesParams> Vacantes { get; set; } = new();
+            public List<ProveedoresParams> Proveedor { get; set; } = new();
         }
 
-        [HttpPost("api/v2/insert/vacantes")]
-        public async Task<IActionResult> InsertarVacantesRequest([FromBody] VacantesPost request)
+        [HttpPost("api/v2/insert/proveedores")]
+        public async Task<IActionResult> InsertarProveedoresRequest([FromBody] ProveedoresPost request)
         {
-            if (request?.Vacantes == null || !request.Vacantes.Any())
+            if (request?.Proveedor == null || !request.Proveedor.Any())
                 return BadRequest("No hay datos válidos para insertar.");
 
             try
@@ -22,7 +22,7 @@ namespace MyApiProject.Controllers
 
                 var insertedIds = new List<int>();
 
-                foreach (var filtro in request.Vacantes)
+                foreach (var filtro in request.Proveedor)
                 {
                     var properties = filtro.GetType().GetProperties()
                         .Where(p => p.GetValue(filtro) != null)
@@ -32,7 +32,7 @@ namespace MyApiProject.Controllers
                     var parameterNames = string.Join(", ", properties.Select(p => $"@{p.Name}"));
 
                     var query = $@"
-                        INSERT INTO [LOCAL_TC032391E].[dbo].[Website_vacantes] ({columnNames})
+                        INSERT INTO [LOCAL_TC032391E].[dbo].[Website_proveedores] ({columnNames})
                         OUTPUT INSERTED.ID
                         VALUES ({parameterNames});
                     ";
@@ -47,7 +47,7 @@ namespace MyApiProject.Controllers
                     insertedIds.Add(Convert.ToInt32(insertedId));
                 }
 
-                return Ok(new { Message = "Vacantes insertadas correctamente.", Ids = insertedIds });
+                return Ok(new { Message = "Proveedores insertadas correctamente.", Ids = insertedIds });
             }
             catch (Exception ex)
             {

@@ -1,12 +1,17 @@
 using Microsoft.OpenApi.Any;
+public class UploadCombos
+{
+    public IFormFile File { get; set; }
 
-public class CombosParams
+    public string CombosData { get; set; }
+}
+public class CombosData
 {
     public string Name { get; set; }
     public decimal Price { get; set; }
-    public decimal PriceOfert { get; set; }
-    public AnyType Descripcion { get; set; }
-    public DateOnly Date { get; set; }
-    public string estado { get; set; }
-    public string porcentaje { get; set; }
+    public decimal Price_ofer { get; set; }
+    public string Description { get; set; } // Asegúrate de que sea string
+    public DateTime Date { get; set; }
+    public string State { get; set; }
+    public string Porcentaje { get; set; }
 }

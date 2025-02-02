@@ -24,7 +24,7 @@ namespace MyApiProject.Controllers
             int offset = (page - 1) * pageSize;
 
             var baseQuery = @"
-            FROM [LOCAL_TC032391E].[dbo].[Website_article]";
+            FROM [LOCAL_TC032391E].[dbo].[Website_Combos]";
 
             var whereClauses = new List<string>();
             var sumaClauses = new List<string>();
@@ -64,11 +64,14 @@ namespace MyApiProject.Controllers
             var paginatedQuery = $@"
                 SELECT
                     [id]
+                    ,[name]
                     ,[price]
-                    ,[unit]
-                    ,[barcode]
-                    ,[id_sucursal]
-                    ,[id_user]
+                    ,[price_ofer]
+                    ,[description]
+                    ,[date]
+                    ,[state]
+                    ,[porcentaje]
+                    ,[file]
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -108,7 +111,41 @@ namespace MyApiProject.Controllers
                     var row = new Dictionary<string, object>();
                     for (int i = 0; i < reader.FieldCount; i++)
                     {
-                        row[reader.GetName(i)] = reader.GetValue(i);
+                        var columnName = reader.GetName(i);
+                        var columnValue = reader.GetValue(i);
+
+                        if (columnName == "file" && columnValue != DBNull.Value)
+                        {
+                            var rutaCompleta = columnValue.ToString();
+
+                            // Verifica si el archivo existe
+                            if (System.IO.File.Exists(rutaCompleta))
+                            {
+                                var nombreArchivo = Path.GetFileName(rutaCompleta);
+                                var contenidoArchivo = System.IO.File.ReadAllBytes(rutaCompleta);
+                                var tipoMime = GetMimeType(nombreArchivo);
+
+                                row[columnName] = new
+                                {
+                                    FileName = nombreArchivo,
+                                    ContentType = tipoMime,
+                                    Content = contenidoArchivo
+                                };
+                            }
+                            else
+                            {
+                                // Si el archivo no existe, devuelve un mensaje de error o un valor predeterminado
+                                row[columnName] = new
+                                {
+                                    Error = "Archivo no encontrado",
+                                    FilePath = rutaCompleta
+                                };
+                            }
+                        }
+                        else
+                        {
+                            row[columnName] = columnValue;
+                        }
                     }
                     results.Add(row);
                 }

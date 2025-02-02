@@ -1,0 +1,3 @@
+Publicar api
+
+``dotnet publish  -o ./landing-page``

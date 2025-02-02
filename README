@@ -1,3 +1,5 @@
 Publicar api
 
-```bash dotnet publish  -o ./landing-page```
+```bash
+dotnet publish  -o ./landing-page
+```

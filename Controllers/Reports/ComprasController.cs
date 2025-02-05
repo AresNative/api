@@ -8,7 +8,6 @@ namespace MyApiProject.Controllers
     {
         public Reporteria(IConfiguration configuration) : base(configuration) { }
 
-
         [HttpPost("api/v1/reporteria/compras")]
         public async Task<IActionResult> ObtenerCompras(
             [FromBody] List<BusquedaParams> filtros,  // Recibir filtros como una lista

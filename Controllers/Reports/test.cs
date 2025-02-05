@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MyApiProject.Controllers
 {
-    public partial class Filtros : BaseController
+    public partial class Reporteria : BaseController
     {
         [HttpGet("api/v1/filtros/compras")]
         public async Task<IActionResult> ComprasLost(

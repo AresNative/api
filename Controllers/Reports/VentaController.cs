@@ -120,15 +120,13 @@ namespace MyApiProject.Controllers
                     results.Add(row);
                 }
 
-                var response = new
+                return Ok(new
                 {
                     Page = page,
                     PageSize = pageSize,
                     TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
                     Data = results
-                };
-
-                return Ok(response);
+                });
             }
             catch (Exception ex)
             {

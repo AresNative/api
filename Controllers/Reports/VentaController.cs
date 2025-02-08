@@ -5,7 +5,6 @@ namespace MyApiProject.Controllers
 {
     public partial class Reporteria : BaseController
     {
-
         [HttpPost("api/v1/reporteria/ventas")]
         public async Task<IActionResult> ObtenerVentas(
             [FromBody] ReporteriaRequest request,
@@ -100,23 +99,23 @@ namespace MyApiProject.Controllers
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
                 " : $@"
                 SELECT
-                     [ID]
-                    ,[Codigo]
-                    ,[Articulo]
-                    ,[Nombre]
-                    ,[Precio]
-                    ,[Costo]
-                    ,[Cantidad]
-                    ,[Importe]
-                    ,[Impuestos]
-                    ,[CostoTotal]
-                    ,[PrecioTotal]
-                    ,[Unidad]
-                    ,[Sucursal]
-                    ,[FechaEmision]
-                    ,[IVA]
-                    ,[IEPS]
-                    ,[ISR]
+                     ID
+                    ,Codigo
+                    ,Articulo
+                    ,Nombre
+                    ,Precio
+                    ,Costo
+                    ,Cantidad
+                    ,Importe
+                    ,Impuestos
+                    ,CostoTotal
+                    ,PrecioTotal
+                    ,Unidad
+                    ,Sucursal
+                    ,FechaEmision
+                    ,IVA
+                    ,IEPS
+                    ,ISR
                     ,[IVA%]
                     ,[IEPS%]
                     ,[ISR%]

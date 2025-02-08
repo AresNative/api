@@ -1,62 +1,106 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using MyApiProject.Models;
 
 namespace MyApiProject.Controllers
 {
     public partial class Reporteria : BaseController
     {
+
         [HttpPost("api/v1/reporteria/ventas")]
         public async Task<IActionResult> ObtenerVentas(
-                            [FromBody] List<BusquedaParams> filtros,
-                            [FromQuery] int page = 1,
-                            [FromQuery] int pageSize = 10)
+            [FromBody] ReporteriaRequest request,
+            [FromQuery] bool sum = false,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            if (filtros == null || !filtros.Any())
-                return BadRequest("Debe proporcionar al menos un filtro.");
-
             if (page <= 0) page = 1;
             if (pageSize <= 0 || pageSize > 100) pageSize = 10;
 
             int offset = (page - 1) * pageSize;
 
             var baseQuery = @"
-                FROM 
-                    [Temp_VentasReport]";
+            FROM [LOCAL_TC032391E].[dbo].[Temp_VentasReport]";
 
             var whereClauses = new List<string>();
+            var sumaClauses = new List<string>();
             var parameters = new List<SqlParameter>();
 
-            foreach (var filter in filtros)
+            // Procesar filtros
+            var fechaEmisionParams = request.Filtros.Where(f => f.Key == "FechaEmision").ToList();
+            if (fechaEmisionParams.Count == 2)
             {
-                if (!string.IsNullOrWhiteSpace(filter.Value))
+                var minFecha = fechaEmisionParams.First(f => f.Operator == ">=");
+                var maxFecha = fechaEmisionParams.First(f => f.Operator == "<=");
+                whereClauses.Add("FechaEmision BETWEEN @FechaEmisionMin AND @FechaEmisionMax");
+                parameters.Add(new SqlParameter("@FechaEmisionMin", DateTime.Parse(minFecha.Value)));
+                parameters.Add(new SqlParameter("@FechaEmisionMax", DateTime.Parse(maxFecha.Value)));
+            }
+            else
+            {
+                foreach (var filter in request.Filtros)
                 {
-                    var columnName = filter.Key;
-                    var parameterName = $"@{filter.Key.Replace(".", "_")}";
-
-                    string operatorClause = filter.Operator?.ToLower() switch
+                    if (!string.IsNullOrWhiteSpace(filter.Value))
                     {
-                        "like" => "LIKE",
-                        "=" => "=",
-                        ">=" => ">=",
-                        "<=" => "<=",
-                        ">" => ">",
-                        "<" => "<",
-                        _ => "LIKE"
-                    };
+                        var columnName = filter.Key;
+                        var parameterName = $"@{filter.Key.Replace(".", "_")}";
 
-                    whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
-                    parameters.Add(new SqlParameter(parameterName, operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value));
+                        if (columnName == "FechaEmision")
+                        {
+                            whereClauses.Add($"{columnName} {filter.Operator} {parameterName}");
+                            parameters.Add(new SqlParameter(parameterName, DateTime.Parse(filter.Value)));
+                        }
+                        else
+                        {
+                            string operatorClause = filter.Operator?.ToLower() switch
+                            {
+                                "like" => "LIKE",
+                                "=" => "=",
+                                ">=" => ">=",
+                                "<=" => "<=",
+                                ">" => ">",
+                                "<" => "<",
+                                "<>" => "<>",
+                                _ => "LIKE"
+                            };
+
+                            whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
+                            parameters.Add(new SqlParameter(parameterName, operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value));
+                        }
+                    }
+                }
+            }
+
+            // Procesar sumas
+            foreach (var suma in request.Sumas)
+            {
+                if (!string.IsNullOrWhiteSpace(suma.Key))
+                {
+                    sumaClauses.Add(suma.Key);
                 }
             }
 
             var whereQuery = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+            var sumaQuery = sumaClauses.Any() ? $"{string.Join(", ", sumaClauses)}" : "";
 
-            var countQuery = $"SELECT COUNT(1) {baseQuery} {whereQuery}";
+            var countQuery = sum ? $@"
+                SELECT COUNT(DISTINCT [Nombre]) AS TotalRegistros {baseQuery} {whereQuery}
+            " : $@"
+                SELECT COUNT(*) AS TotalRegistros {baseQuery} {whereQuery}";
 
-            var paginatedQuery = $@"
-                SELECT 
-                    [ID]
+            var paginatedQuery = sum ? $@" 
+                    SELECT
+                        {(string.IsNullOrEmpty(sumaQuery) ? "" : $" ROW_NUMBER() OVER(ORDER BY {sumaQuery} DESC) AS ID,")}
+                        {(string.IsNullOrEmpty(sumaQuery) ? "" : $"{sumaQuery} ,")}
+                        SUM(Cantidad) as Cantidad,
+                        SUM(Importe) as Importe
+                    {baseQuery} 
+                    {whereQuery}
+                        {(string.IsNullOrEmpty(sumaQuery) ? "" : $"GROUP BY {sumaQuery}")}
+                    ORDER BY Importe DESC
+                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+                " : $@"
+                SELECT
+                     [ID]
                     ,[Codigo]
                     ,[Articulo]
                     ,[Nombre]
@@ -77,14 +121,13 @@ namespace MyApiProject.Controllers
                     ,[IEPS%]
                     ,[ISR%]
                 {baseQuery} {whereQuery}
-                ORDER BY ID ASC
+                ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
-
             try
             {
                 await using var connection = await OpenConnectionAsync();
 
-                // Crear nuevos parámetros para la consulta de conteo
+                // Total records
                 var countCommandParameters = parameters
                     .Select(p => new SqlParameter(p.ParameterName, p.Value))
                     .ToList();
@@ -93,7 +136,7 @@ namespace MyApiProject.Controllers
                 countCommand.Parameters.AddRange(countCommandParameters.ToArray());
                 var totalRecords = (int)await countCommand.ExecuteScalarAsync();
 
-                // Crear nuevos parámetros para la consulta paginada
+                // Paginated data
                 var paginatedParameters = parameters
                     .Select(p => new SqlParameter(p.ParameterName, p.Value))
                     .ToList();
@@ -122,9 +165,10 @@ namespace MyApiProject.Controllers
 
                 return Ok(new
                 {
+                    TotalRecords = totalRecords,
                     Page = page,
-                    PageSize = pageSize,
                     TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
+                    PageSize = pageSize,
                     Data = results
                 });
             }

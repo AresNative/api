@@ -130,7 +130,6 @@ namespace MyApiProject.Controllers
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
-            Console.Write(paginatedQuery);
             try
             {
                 await using var connection = await OpenConnectionAsync();

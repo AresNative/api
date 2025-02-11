@@ -91,7 +91,7 @@ namespace MyApiProject.Controllers
                         {(string.IsNullOrEmpty(sumaQuery) ? "" : $" ROW_NUMBER() OVER(ORDER BY {sumaQuery} DESC) AS ID,")}
                         {(string.IsNullOrEmpty(sumaQuery) ? "" : $"{sumaQuery} ,")}
                         SUM(Cantidad) as Cantidad,
-                        SUM(Importe) as Importe
+                        SUM([ImporteTotal]) as Importe
                     {baseQuery} 
                     {whereQuery}
                         {(string.IsNullOrEmpty(sumaQuery) ? "" : $"GROUP BY {sumaQuery}")}
@@ -99,26 +99,24 @@ namespace MyApiProject.Controllers
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
                 " : $@"
                 SELECT
-                     ID
-                    ,Codigo
-                    ,Articulo
-                    ,Nombre
-                    ,Precio
-                    ,Costo
-                    ,Cantidad
-                    ,Importe
-                    ,Impuestos
-                    ,CostoTotal
-                    ,PrecioTotal
-                    ,Unidad
-                    ,Sucursal
-                    ,FechaEmision
-                    ,IVA
-                    ,IEPS
-                    ,ISR
-                    ,[IVA%]
-                    ,[IEPS%]
-                    ,[ISR%]
+                    Cliente,
+                    Tipo,
+                    Movimiento,
+                    Articulo,
+                    Nombre,
+                    Categoria,
+                    Grupo,
+                    Linea,
+                    Familia,
+                    CostoUnitario,
+                    CostoTotal,
+                    ImporteUnitario,
+                    ImporteTotal,
+                    Cantidad,
+                    Almacen,
+                    FechaEmision,
+                    Mes,
+                    Año
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";

@@ -23,11 +23,13 @@ namespace MyApiProject.Controllers
             var whereClauses = new List<string>();
             var sumaClauses = new List<string>();
             var parameters = new List<SqlParameter>();
+            var parameterCounters = new Dictionary<string, int>(); // Nuevo: Contador de parámetros
 
             // Procesar filtros
             var fechaEmisionParams = request.Filtros.Where(f => f.Key == "FechaEmision").ToList();
             if (fechaEmisionParams.Count == 2)
             {
+                // Modificado: Usar nombres únicos
                 var minFecha = fechaEmisionParams.First(f => f.Operator == ">=");
                 var maxFecha = fechaEmisionParams.First(f => f.Operator == "<=");
                 whereClauses.Add("FechaEmision BETWEEN @FechaEmisionMin AND @FechaEmisionMax");
@@ -41,12 +43,24 @@ namespace MyApiProject.Controllers
                     if (!string.IsNullOrWhiteSpace(filter.Value))
                     {
                         var columnName = filter.Key;
-                        var parameterName = $"@{filter.Key.Replace(".", "_")}";
+                        var baseParameterName = $"@{columnName.Replace(".", "_")}";
+
+                        // Nuevo: Generar nombres únicos
+                        if (!parameterCounters.ContainsKey(columnName))
+                        {
+                            parameterCounters[columnName] = 0;
+                        }
+                        else
+                        {
+                            parameterCounters[columnName]++;
+                        }
+
+                        var uniqueParameterName = $"{baseParameterName}_{parameterCounters[columnName]}";
 
                         if (columnName == "FechaEmision")
                         {
-                            whereClauses.Add($"{columnName} {filter.Operator} {parameterName}");
-                            parameters.Add(new SqlParameter(parameterName, DateTime.Parse(filter.Value)));
+                            whereClauses.Add($"{columnName} {filter.Operator} {uniqueParameterName}");
+                            parameters.Add(new SqlParameter(uniqueParameterName, DateTime.Parse(filter.Value)));
                         }
                         else
                         {
@@ -62,14 +76,17 @@ namespace MyApiProject.Controllers
                                 _ => "LIKE"
                             };
 
-                            whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
-                            parameters.Add(new SqlParameter(parameterName, operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value));
+                            whereClauses.Add($"{columnName} {operatorClause} {uniqueParameterName}"); // Usar nombre único
+                            parameters.Add(new SqlParameter(
+                                uniqueParameterName,
+                                operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value
+                            ));
                         }
                     }
                 }
             }
 
-            // Procesar sumas
+            // Procesar sumas (sin cambios)
             foreach (var suma in request.Sumas)
             {
                 if (!string.IsNullOrWhiteSpace(suma.Key))
@@ -78,9 +95,26 @@ namespace MyApiProject.Controllers
                 }
             }
 
-            var whereQuery = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+            // Agrupar condiciones (sin cambios)
+            var groupedConditions = whereClauses
+                .Select(c => new
+                {
+                    Key = c.Split(' ')[0],
+                    Condition = c
+                })
+                .GroupBy(x => x.Key)
+                .Select(g => g.Count() > 1
+                    ? $"({string.Join(" OR ", g.Select(x => x.Condition))})"
+                    : g.First().Condition)
+                .ToList();
+
+            var whereQuery = groupedConditions.Any()
+                ? $"WHERE {string.Join(" AND ", groupedConditions)}"
+                : "";
+
             var sumaQuery = sumaClauses.Any() ? $"{string.Join(", ", sumaClauses)}" : "";
 
+            // Resto del código sin cambios (countQuery, paginatedQuery)
             var countQuery = sum ? $@"
                 SELECT COUNT(DISTINCT [Nombre]) AS TotalRegistros {baseQuery} {whereQuery}
             " : $@"
@@ -120,11 +154,12 @@ namespace MyApiProject.Controllers
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
+
             try
             {
                 await using var connection = await OpenConnectionAsync();
 
-                // Total records
+                // Total records (sin cambios)
                 var countCommandParameters = parameters
                     .Select(p => new SqlParameter(p.ParameterName, p.Value))
                     .ToList();
@@ -133,7 +168,7 @@ namespace MyApiProject.Controllers
                 countCommand.Parameters.AddRange(countCommandParameters.ToArray());
                 var totalRecords = (int)await countCommand.ExecuteScalarAsync();
 
-                // Paginated data
+                // Paginated data (sin cambios)
                 var paginatedParameters = parameters
                     .Select(p => new SqlParameter(p.ParameterName, p.Value))
                     .ToList();

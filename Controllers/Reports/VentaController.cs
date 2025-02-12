@@ -23,68 +23,73 @@ namespace MyApiProject.Controllers
             var whereClauses = new List<string>();
             var sumaClauses = new List<string>();
             var parameters = new List<SqlParameter>();
-            var parameterCounters = new Dictionary<string, int>(); // Nuevo: Contador de parámetros
+            var parameterCounters = new Dictionary<string, int>();
 
             // Procesar filtros
             var fechaEmisionParams = request.Filtros.Where(f => f.Key == "FechaEmision").ToList();
+            bool fechaRangeProcessed = false;
+
+            // Manejo de rango de fechas si hay exactamente dos filtros
             if (fechaEmisionParams.Count == 2)
             {
-                // Modificado: Usar nombres únicos
-                var minFecha = fechaEmisionParams.First(f => f.Operator == ">=");
-                var maxFecha = fechaEmisionParams.First(f => f.Operator == "<=");
-                whereClauses.Add("FechaEmision BETWEEN @FechaEmisionMin AND @FechaEmisionMax");
-                parameters.Add(new SqlParameter("@FechaEmisionMin", DateTime.Parse(minFecha.Value)));
-                parameters.Add(new SqlParameter("@FechaEmisionMax", DateTime.Parse(maxFecha.Value)));
-            }
-            else
-            {
-                foreach (var filter in request.Filtros)
+                var minFecha = fechaEmisionParams.FirstOrDefault(f => f.Operator == ">=");
+                var maxFecha = fechaEmisionParams.FirstOrDefault(f => f.Operator == "<=");
+
+                if (minFecha != null && maxFecha != null)
                 {
-                    if (!string.IsNullOrWhiteSpace(filter.Value))
+                    whereClauses.Add("FechaEmision BETWEEN @FechaEmisionMin AND @FechaEmisionMax");
+                    parameters.Add(new SqlParameter("@FechaEmisionMin", DateTime.Parse(minFecha.Value)));
+                    parameters.Add(new SqlParameter("@FechaEmisionMax", DateTime.Parse(maxFecha.Value)));
+                    fechaRangeProcessed = true;
+                }
+            }
+
+            // Procesar otros filtros (excluyendo los de fecha si ya se procesaron)
+            foreach (var filter in request.Filtros)
+            {
+                if (fechaRangeProcessed && filter.Key == "FechaEmision") continue; // Saltar fechas ya procesadas
+
+                if (!string.IsNullOrWhiteSpace(filter.Value))
+                {
+                    var columnName = filter.Key;
+                    string operatorClause = filter.Operator?.ToLower() switch
                     {
-                        var columnName = filter.Key;
-                        var baseParameterName = $"@{columnName.Replace(".", "_")}";
+                        "like" => "LIKE",
+                        "=" => "=",
+                        ">=" => ">=",
+                        "<=" => "<=",
+                        ">" => ">",
+                        "<" => "<",
+                        "<>" => "<>",
+                        _ => "LIKE"
+                    };
 
-                        // Nuevo: Generar nombres únicos
+                    if (columnName == "FechaEmision")
+                    {
+                        var parameterName = $"@FechaEmision_{operatorClause}";
+                        whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
+                        parameters.Add(new SqlParameter(parameterName, DateTime.Parse(filter.Value)));
+                    }
+                    else
+                    {
+                        // Generar nombres de parámetros únicos para otros campos
                         if (!parameterCounters.ContainsKey(columnName))
-                        {
                             parameterCounters[columnName] = 0;
-                        }
                         else
-                        {
                             parameterCounters[columnName]++;
-                        }
 
-                        var uniqueParameterName = $"{baseParameterName}_{parameterCounters[columnName]}";
+                        var uniqueParameterName = $"@{columnName.Replace(".", "_")}_{parameterCounters[columnName]}";
+                        whereClauses.Add($"{columnName} {operatorClause} {uniqueParameterName}");
 
-                        if (columnName == "FechaEmision")
-                        {
-                            whereClauses.Add($"{columnName} {filter.Operator} {uniqueParameterName}");
-                            parameters.Add(new SqlParameter(uniqueParameterName, DateTime.Parse(filter.Value)));
-                        }
-                        else
-                        {
-                            string operatorClause = filter.Operator?.ToLower() switch
-                            {
-                                "like" => "LIKE",
-                                "=" => "=",
-                                ">=" => ">=",
-                                "<=" => "<=",
-                                ">" => ">",
-                                "<" => "<",
-                                "<>" => "<>",
-                                _ => "LIKE"
-                            };
+                        object paramValue = operatorClause == "LIKE"
+                            ? $"%{filter.Value}%"
+                            : filter.Value;
 
-                            whereClauses.Add($"{columnName} {operatorClause} {uniqueParameterName}"); // Usar nombre único
-                            parameters.Add(new SqlParameter(
-                                uniqueParameterName,
-                                operatorClause == "LIKE" ? $"%{filter.Value}%" : filter.Value
-                            ));
-                        }
+                        parameters.Add(new SqlParameter(uniqueParameterName, paramValue));
                     }
                 }
             }
+
 
             // Procesar sumas (sin cambios)
             foreach (var suma in request.Sumas)
@@ -154,7 +159,7 @@ namespace MyApiProject.Controllers
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
-
+            Console.Write(paginatedQuery);
             try
             {
                 await using var connection = await OpenConnectionAsync();
@@ -198,8 +203,8 @@ namespace MyApiProject.Controllers
                 return Ok(new
                 {
                     TotalRecords = totalRecords,
-                    Page = page,
                     TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
+                    Page = page,
                     PageSize = pageSize,
                     Data = results
                 });

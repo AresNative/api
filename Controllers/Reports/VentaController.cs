@@ -64,29 +64,20 @@ namespace MyApiProject.Controllers
                         _ => "LIKE"
                     };
 
-                    if (columnName == "FechaEmision")
-                    {
-                        var parameterName = $"@FechaEmision_{operatorClause}";
-                        whereClauses.Add($"{columnName} {operatorClause} {parameterName}");
-                        parameters.Add(new SqlParameter(parameterName, DateTime.Parse(filter.Value)));
-                    }
+                    // Generar nombres de parámetros únicos para otros campos
+                    if (!parameterCounters.ContainsKey(columnName))
+                        parameterCounters[columnName] = 0;
                     else
-                    {
-                        // Generar nombres de parámetros únicos para otros campos
-                        if (!parameterCounters.ContainsKey(columnName))
-                            parameterCounters[columnName] = 0;
-                        else
-                            parameterCounters[columnName]++;
+                        parameterCounters[columnName]++;
 
-                        var uniqueParameterName = $"@{columnName.Replace(".", "_")}_{parameterCounters[columnName]}";
-                        whereClauses.Add($"{columnName} {operatorClause} {uniqueParameterName}");
+                    var uniqueParameterName = $"@{columnName.Replace(".", "_")}_{parameterCounters[columnName]}";
+                    whereClauses.Add($"{columnName} {operatorClause} {uniqueParameterName}");
 
-                        object paramValue = operatorClause == "LIKE"
-                            ? $"%{filter.Value}%"
-                            : filter.Value;
+                    object paramValue = operatorClause == "LIKE"
+                        ? $"%{filter.Value}%"
+                        : filter.Value;
 
-                        parameters.Add(new SqlParameter(uniqueParameterName, paramValue));
-                    }
+                    parameters.Add(new SqlParameter(uniqueParameterName, paramValue));
                 }
             }
 

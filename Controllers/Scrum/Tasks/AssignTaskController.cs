@@ -7,7 +7,7 @@ namespace MyApiProject.Controllers
 {
     public partial class ScrumController : BaseController
     {
-        [HttpPut("api/v1/tasks/{taskId}/assign-user")]
+        [HttpPost("api/v1/tasks/{taskId}/assign-user")]
         public async Task<IActionResult> AssignTaskToUser(int taskId, [FromBody] int userId)
         {
 

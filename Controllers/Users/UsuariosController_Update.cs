@@ -8,7 +8,7 @@ namespace MyApiProject.Controllers
     public partial class UsuariosController : BaseController
     {
         [Authorize]
-        [HttpPut("api/v1/users/update/{id}")]
+        [HttpPost("api/v1/users/update/{id}")]
         public async Task<IActionResult> ActualizarUsuario(int id, [FromBody] Usuario usuarioActualizado)
         {
             string query = @"UPDATE Website_users 

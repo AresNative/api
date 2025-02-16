@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using MyApiProject.Models;
@@ -7,7 +6,7 @@ namespace MyApiProject.Controllers
 {
     public partial class ScrumController : BaseController
     {
-        [HttpPut("api/v1/tasks/{taskId}/update-status")]
+        [HttpPost("api/v1/tasks/{taskId}/update-status")]
         public async Task<IActionResult> UpdateTaskStatus(int taskId, [FromBody] Sprint nuevoSprint)
         {
 

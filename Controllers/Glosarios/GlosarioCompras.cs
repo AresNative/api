@@ -5,9 +5,9 @@ namespace MyApiProject.Controllers
 {
     public partial class Glosarios : BaseController
     {
-
-        [HttpGet("api/v1/glosarios/glosario-ventas")]
-        public async Task<IActionResult> ObtenerGlosarioVentas()
+        public Glosarios(IConfiguration configuration) : base(configuration) { }
+        [HttpGet("api/v1/glosarios/glosario-compras")]
+        public async Task<IActionResult> ObtenerGlosarioCompras()
         {
             try
             {
@@ -20,7 +20,7 @@ namespace MyApiProject.Controllers
                     SELECT 
                         top (1) *
                     FROM 
-                        Temp_VentasReport
+                        Temp_ComprasReport
                 ", connection) // Solo un registro para obtener columnas
                 {
                     CommandTimeout = 30
@@ -33,6 +33,7 @@ namespace MyApiProject.Controllers
                 {
                     // Obtener el nombre de la columna
                     string columnName = reader.GetName(i);
+
 
                     // Construcción dinámica del glosario
                     var columna = new Dictionary<string, object>

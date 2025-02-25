@@ -14,7 +14,7 @@ namespace MyApiProject.Controllers
             [FromQuery] int pageSize = 10)
         {
             if (page <= 0) page = 1;
-            if (pageSize <= 0 || pageSize > 100) pageSize = 10;
+            if (pageSize <= 0) pageSize = 10;
 
             int offset = (page - 1) * pageSize;
 
@@ -82,7 +82,6 @@ namespace MyApiProject.Controllers
                 }
             }
 
-
             // Procesar sumas (sin cambios)
             foreach (var suma in request.Sumas)
             {
@@ -130,24 +129,9 @@ namespace MyApiProject.Controllers
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
                 " : $@"
                 SELECT
-                    [ID]
-                    ,[Codigo]
-                    ,[Proveedor]
-                    ,[Tipo]
-                    ,[Movimiento]
-                    ,[Articulo]
-                    ,[Nombre]
-                    ,[Categoria]
-                    ,[Grupo]
-                    ,[Linea]
-                    ,[Familia]
-                    ,[CostoUnitario]
-                    ,[CostoTotal]
-                    ,[Cantidad]
-                    ,[Almacen]
-                    ,[FechaEmision]
-                    ,[Mes]
-                    ,[Año]
+                    {(string.IsNullOrEmpty(sumaQuery) ? @"
+                        Nombre,Proveedor,Almacen,Unidad,Cantidad,CostoTotal,FechaEmision
+                    " : $"{sumaQuery}")}
                 {baseQuery} {whereQuery}
                 ORDER BY ID
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
